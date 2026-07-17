@@ -1,3 +1,4 @@
+using BenchmarkServer.Protocols;
 using BenchmarkServer.Routes;
 using BenchmarkServer.Services;
 
@@ -7,9 +8,11 @@ builder.Services.AddSingleton<BenchmarkState>();
 builder.Services.AddSingleton<MessageGenerator>();
 
 var app = builder.Build();
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.MapHealthRoutes();
 app.MapControlRoutes();
 app.MapStatsRoutes();
+app.MapWebSocketProtocol();
 app.Run();
 
 public partial class Program
