@@ -13,6 +13,7 @@ app.MapHealthRoutes();
 app.MapControlRoutes();
 app.MapStatsRoutes();
 app.MapWebSocketProtocol();
+app.MapSseProtocol();
 app.Run();
 
 public partial class Program
