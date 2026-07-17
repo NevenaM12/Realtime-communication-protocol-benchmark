@@ -14,6 +14,7 @@ app.MapControlRoutes();
 app.MapStatsRoutes();
 app.MapWebSocketProtocol();
 app.MapSseProtocol();
+app.MapLongPollingProtocol();
 app.Run();
 
 public partial class Program
