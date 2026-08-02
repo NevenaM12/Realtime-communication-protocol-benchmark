@@ -6,7 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://0.0.0.0:8080");
 builder.Services.AddSingleton<BenchmarkState>();
 builder.Services.AddSingleton<MessageGenerator>();
-
+builder.Services.AddSingleton<ResourceSampler>();
 var app = builder.Build();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
 app.MapHealthRoutes();

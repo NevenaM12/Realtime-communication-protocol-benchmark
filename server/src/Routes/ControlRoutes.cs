@@ -10,7 +10,7 @@ public static class ControlRoutes
 	{
 		app.MapPost(
 			"/control/start",
-			async (BenchmarkRunConfig config, BenchmarkState state, MessageGenerator generator) =>
+			async (BenchmarkRunConfig config, BenchmarkState state, MessageGenerator generator, ResourceSampler sampler) =>
 			{
 				try
 				{
@@ -23,6 +23,7 @@ public static class ControlRoutes
 					await File.WriteAllTextAsync(
 						Path.Combine(dir, "server_config.json"),
 						JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
+					sampler.Start(config.RunId, token);
 					await generator.StartAsync(config, token);
 
 					return Results.Ok(new
@@ -40,11 +41,12 @@ public static class ControlRoutes
 
 		app.MapPost(
 			"/control/stop",
-			async (BenchmarkState state, MessageGenerator generator) =>
+			async (BenchmarkState state, MessageGenerator generator, ResourceSampler sampler) =>
 			{
 				var runId = state.Config?.RunId;
 				state.Stop();
 				await generator.WaitAsync();
+				await sampler.StopAsync();
 				var stats = state.Snapshot(runId);
 
 				if (runId is not null)
