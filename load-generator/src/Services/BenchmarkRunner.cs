@@ -56,9 +56,14 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			}
 		})).ToArray();
 
-		Console.WriteLine($"Run {options.RunId} started for {options.Duration}s");
+		var limitDescription = options.Duration > 0 && options.TotalMessages is not null
+			? $"{options.Duration}s or {options.TotalMessages} messages"
+			: options.Duration > 0
+				? $"{options.Duration}s"
+				: $"{options.TotalMessages} messages";
+		Console.WriteLine($"Run {options.RunId} started for {limitDescription}");
 		var stopwatch = Stopwatch.StartNew();
-		while (stopwatch.Elapsed < TimeSpan.FromSeconds(options.Duration))
+		while (options.Duration <= 0 || stopwatch.Elapsed < TimeSpan.FromSeconds(options.Duration))
 		{
 			await Task.Delay(1000);
 			Console.WriteLine($"  {stopwatch.Elapsed.TotalSeconds:F0}s: {Interlocked.Read(ref received)} deliveries");

@@ -24,9 +24,12 @@ public sealed class MessageGenerator(BenchmarkState state, ILogger<MessageGenera
 		var sw = Stopwatch.StartNew();
 		long generated = 0;
 		var max = c.TotalMessages ?? long.MaxValue;
+		var hasDurationLimit = c.DurationSeconds > 0;
 		try
 		{
-			while (!token.IsCancellationRequested && generated < max && sw.Elapsed.TotalSeconds < c.DurationSeconds)
+			while (!token.IsCancellationRequested &&
+			       generated < max &&
+			       (!hasDurationLimit || sw.Elapsed.TotalSeconds < c.DurationSeconds))
 			{
 				var target = (long)Math.Floor(sw.Elapsed.TotalSeconds * c.MessageRatePerSecond);
 				if (target <= generated)

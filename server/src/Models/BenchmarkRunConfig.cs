@@ -16,8 +16,8 @@ public sealed record BenchmarkRunConfig(
 			throw new ArgumentOutOfRangeException(nameof(PayloadSizeBytes));
 		if (MessageRatePerSecond <= 0 || MessageRatePerSecond > 100000)
 			throw new ArgumentOutOfRangeException(nameof(MessageRatePerSecond));
-		if (DurationSeconds <= 0 && TotalMessages is null)
-			throw new ArgumentOutOfRangeException(nameof(DurationSeconds));
+		if (DurationSeconds < 0 || (DurationSeconds == 0 && TotalMessages is null))
+			throw new ArgumentOutOfRangeException(nameof(DurationSeconds), "Duration must be non-negative and can be zero only when totalMessages is specified.");
 		if (TotalMessages <= 0)
 			throw new ArgumentOutOfRangeException(nameof(TotalMessages));
 		if (MessageBufferSize <= 0)

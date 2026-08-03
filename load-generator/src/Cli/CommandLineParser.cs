@@ -24,9 +24,14 @@ public static class CommandLineParser
 		var clients = Int("clients", 1);
 		var size = Int("payload-size", 1024);
 		var rate = Int("rate", 10);
-		var duration = Int("duration", 60);
-		if (clients <= 0 || size < 0 || rate <= 0 || duration <= 0)
-			throw new ArgumentException("clients, rate, duration must be positive and payload size non-negative");
+		long? totalMessages = d.TryGetValue("total-messages", out var tm) ? long.Parse(tm) : null;
+		var duration = Int("duration", totalMessages is null ? 60 : 0);
+		if (clients <= 0 || size < 0 || rate <= 0)
+			throw new ArgumentException("clients and rate must be positive and payload size non-negative");
+		if (duration < 0 || (duration == 0 && totalMessages is null))
+			throw new ArgumentException("--duration must be non-negative and can be zero only when --total-messages is specified");
+		if (totalMessages <= 0)
+			throw new ArgumentException("--total-messages must be positive");
 
 		return new(
 			protocol,
@@ -34,7 +39,7 @@ public static class CommandLineParser
 			size,
 			rate,
 			duration,
-			d.TryGetValue("total-messages", out var tm) ? long.Parse(tm) : null,
+			totalMessages,
 			Get("run-id", $"{protocol}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}"),
 			Get("server-url", Environment.GetEnvironmentVariable("SERVER_URL") ?? "http://benchmark-server:8080"),
 			Int("warmup-seconds", 5),
