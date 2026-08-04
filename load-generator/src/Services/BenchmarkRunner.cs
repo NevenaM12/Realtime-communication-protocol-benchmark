@@ -5,6 +5,7 @@ using System.Text.Json;
 using LoadGenerator.Cli;
 using LoadGenerator.Clients;
 using LoadGenerator.Metrics;
+using LoadGenerator.Models;
 
 namespace LoadGenerator.Services;
 
@@ -42,13 +43,16 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			start.EnsureSuccessStatusCode();
 
 		var trackers = new ConcurrentDictionary<int, LossTracker>(clients.Select(c => new KeyValuePair<int, LossTracker>(c.Id, new())));
+		var clientRunStates = clients.ToDictionary(c => c.Id, _ => new ClientRunState());
 		var latency = new LatencyHistogram();
 		var bytes = new ByteAccounting();
 		long received = 0, errors = 0;
+		var benchmarkEnding = 0;
 		await using var writer = new ResultWriter(dir, options.RawLog, options.RawLogLimit);
 		using var runCts = new CancellationTokenSource();
 		var tasks = clients.Select(c => Task.Run(async () =>
 		{
+			var clientRunState = clientRunStates[c.Id];
 			try
 			{
 				await c.RunAsync(async (id, message, encoded, receivedAt) =>
@@ -77,11 +81,18 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 							raw_latency_ms = raw
 						});
 				}, runCts.Token);
+
+				if (Volatile.Read(ref benchmarkEnding) == 0)
+					Interlocked.Increment(ref clientRunState.Disconnects);
 			}
-			catch (OperationCanceledException) { }
+			catch (OperationCanceledException) when (
+				runCts.IsCancellationRequested || Volatile.Read(ref benchmarkEnding) != 0) { }
+			catch (Exception) when (Volatile.Read(ref benchmarkEnding) != 0) { }
 			catch (Exception ex)
 			{
 				Interlocked.Increment(ref errors);
+				Interlocked.Increment(ref clientRunState.Errors);
+				Interlocked.Increment(ref clientRunState.Disconnects);
 				Console.Error.WriteLine($"Client {c.Id}: {ex.Message}");
 			}
 		})).ToArray();
@@ -105,6 +116,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			}
 		}
 
+		Volatile.Write(ref benchmarkEnding, 1);
 		using var stop = await _http.PostAsync(options.ServerUrl.TrimEnd('/') + "/control/stop", null);
 		stop.EnsureSuccessStatusCode();
 		var finalJson = await stop.Content.ReadAsStringAsync();
@@ -125,6 +137,25 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 
 		foreach (var tracker in trackers.Values)
 			tracker.Complete(final.MessagesGenerated);
+		var clientMetrics = clients
+			.OrderBy(c => c.Id)
+			.Select(c =>
+			{
+				var tracker = trackers[c.Id];
+				var runState = clientRunStates[c.Id];
+				return new ClientMetric(
+					c.Id,
+					tracker.Count,
+					tracker.First,
+					tracker.Last,
+					tracker.Missing,
+					tracker.Duplicates,
+					tracker.OutOfOrder,
+					Interlocked.Read(ref runState.Disconnects),
+					Interlocked.Read(ref runState.Errors),
+					c.SetupTimeMs);
+			})
+			.ToArray();
 		var loss = trackers.Values.Sum(x => x.Missing);
 		var uniqueReceived = trackers.Values.Sum(x => x.UniqueCount);
 		var theoretical = final.MessagesGenerated * options.Clients;
@@ -171,6 +202,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			EmptyPollResponses = clients.Sum(c => c.EmptyPollResponses)
 		};
 		await File.WriteAllTextAsync(Path.Combine(dir, "server_final_stats.json"), finalJson);
+		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_metrics.json"), clientMetrics);
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_summary.json"), summary);
 		await ResultWriter.WriteSummaryCsvAsync(Path.Combine(dir, "client_summary.csv"), summary);
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "final_summary.json"), summary);
@@ -210,5 +242,11 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 	private sealed class ServerStats
 	{
 		public long MessagesGenerated { get; set; }
+	}
+
+	private sealed class ClientRunState
+	{
+		public long Disconnects;
+		public long Errors;
 	}
 }
