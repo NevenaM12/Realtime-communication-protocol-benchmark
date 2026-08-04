@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Text.Json;
 using LoadGenerator.Cli;
 using LoadGenerator.Clients;
+using LoadGenerator.Metrics;
 
 namespace LoadGenerator.Services;
 
@@ -17,6 +20,8 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 
 		using var setupCts = new CancellationTokenSource(TimeSpan.FromSeconds(options.SetupTimeoutSeconds));
 		await WaitForHealthAsync(setupCts.Token);
+		var clock = await ClockSynchronizer.SynchronizeAsync(_http, options.ServerUrl, options.ClockSyncSamples, setupCts.Token);
+		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "clock_sync.json"), clock);
 
 		var clients = Enumerable.Range(1, options.Clients).Select(CreateClient).ToArray();
 		Console.WriteLine($"Connecting {options.Clients} {options.Protocol} clients...");
@@ -36,16 +41,41 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 		using (var start = await _http.PostAsJsonAsync(options.ServerUrl.TrimEnd('/') + "/control/start", config))
 			start.EnsureSuccessStatusCode();
 
+		var trackers = new ConcurrentDictionary<int, LossTracker>(clients.Select(c => new KeyValuePair<int, LossTracker>(c.Id, new())));
+		var latency = new LatencyHistogram();
+		var bytes = new ByteAccounting();
 		long received = 0, errors = 0;
+		await using var writer = new ResultWriter(dir, options.RawLog, options.RawLogLimit);
 		using var runCts = new CancellationTokenSource();
 		var tasks = clients.Select(c => Task.Run(async () =>
 		{
 			try
 			{
-				await c.RunAsync((_, _, _, _) =>
+				await c.RunAsync(async (id, message, encoded, receivedAt) =>
 				{
+					var raw = receivedAt - message.SentAt;
+					var adjusted = raw + clock.EstimatedClockOffsetMs;
+					trackers[id].Record(message.Id);
+					latency.Record(adjusted);
 					Interlocked.Increment(ref received);
-					return Task.CompletedTask;
+					var protocolBytes = options.Protocol switch
+					{
+						"ws" => encoded + (encoded < 126 ? 2 : encoded <= 65535 ? 4 : 10),
+						"sse" => encoded,
+						_ => 0
+					};
+					bytes.Add(message.Payload.Length, encoded, protocolBytes);
+					if (options.RawLog)
+						await writer.RawAsync(new
+						{
+							protocol = options.Protocol,
+							clientId = id,
+							messageId = message.Id,
+							sent_at = message.SentAt,
+							received_at = receivedAt,
+							adjusted_latency_ms = adjusted,
+							raw_latency_ms = raw
+						});
 				}, runCts.Token);
 			}
 			catch (OperationCanceledException) { }
@@ -77,18 +107,74 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 
 		using var stop = await _http.PostAsync(options.ServerUrl.TrimEnd('/') + "/control/stop", null);
 		stop.EnsureSuccessStatusCode();
+		var finalJson = await stop.Content.ReadAsStringAsync();
+		var final = JsonSerializer.Deserialize<ServerStats>(
+			finalJson,
+			new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+		if (options.CooldownSeconds > 0)
+			await Task.Delay(TimeSpan.FromSeconds(options.CooldownSeconds));
 		runCts.Cancel();
 		try
 		{
 			await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
 		}
 		catch (TimeoutException) { }
-		if (options.CooldownSeconds > 0)
-			await Task.Delay(TimeSpan.FromSeconds(options.CooldownSeconds));
+		var measured = stopwatch.Elapsed.TotalSeconds;
 		foreach (var client in clients)
 			await client.DisposeAsync();
 
-		Console.WriteLine($"Completed: {Interlocked.Read(ref received)} deliveries, {Interlocked.Read(ref errors)} client errors");
+		foreach (var tracker in trackers.Values)
+			tracker.Complete(final.MessagesGenerated);
+		var loss = trackers.Values.Sum(x => x.Missing);
+		var uniqueReceived = trackers.Values.Sum(x => x.UniqueCount);
+		var theoretical = final.MessagesGenerated * options.Clients;
+		var pollRequests = clients.Sum(c => c.PollRequests);
+		var estimatedProtocolBytes = options.Protocol == "lp"
+			? clients.Sum(c => c.ResponseBodyBytes) + pollRequests * 300
+			: bytes.EstimatedProtocolBytes;
+		var estimatedOverheadBytes = Math.Max(0, estimatedProtocolBytes - bytes.PayloadBytes);
+		var summary = new BenchmarkSummary
+		{
+			RunId = options.RunId,
+			Protocol = options.Protocol,
+			Clients = options.Clients,
+			PayloadSizeBytes = options.PayloadSize,
+			MessageRatePerSecond = options.Rate,
+			DurationSeconds = options.Duration,
+			MessagesReceived = received,
+			UniqueMessagesReceived = uniqueReceived,
+			MessagesGeneratedByServer = final.MessagesGenerated,
+			TheoreticalDeliveries = theoretical,
+			DeliveryRatio = theoretical == 0 ? 0 : uniqueReceived / (double)theoretical,
+			ThroughputMessagesPerSecond = ThroughputTracker.Calculate(received, measured),
+			LatencyAvgMs = latency.Average,
+			LatencyMedianMs = latency.Percentile(.5),
+			LatencyP95Ms = latency.Percentile(.95),
+			LatencyP99Ms = latency.Percentile(.99),
+			LatencyMinMs = latency.Min,
+			LatencyMaxMs = latency.Max,
+			ConnectionSetupAvgMs = SetupTimeTracker.Average(clients.Select(c => c.SetupTimeMs)),
+			ConnectionSetupP95Ms = SetupTimeTracker.P95(clients.Select(c => c.SetupTimeMs)),
+			MessageLossCount = loss,
+			MessageLossRate = theoretical == 0 ? 0 : loss / (double)theoretical,
+			DuplicateMessageCount = trackers.Values.Sum(x => x.Duplicates),
+			OutOfOrderMessageCount = trackers.Values.Sum(x => x.OutOfOrder),
+			ErrorCount = errors,
+			EstimatedClockOffsetMs = clock.EstimatedClockOffsetMs,
+			ClockSyncRttAvgMs = clock.RttAvgMs,
+			PayloadBytesDelivered = bytes.PayloadBytes,
+			EncodedMessageBytes = bytes.EncodedMessageBytes,
+			EstimatedProtocolBytes = estimatedProtocolBytes,
+			EstimatedOverheadBytes = estimatedOverheadBytes,
+			OverheadRatio = bytes.PayloadBytes == 0 ? 0 : estimatedOverheadBytes / (double)bytes.PayloadBytes,
+			PollRequests = pollRequests,
+			EmptyPollResponses = clients.Sum(c => c.EmptyPollResponses)
+		};
+		await File.WriteAllTextAsync(Path.Combine(dir, "server_final_stats.json"), finalJson);
+		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_summary.json"), summary);
+		await ResultWriter.WriteSummaryCsvAsync(Path.Combine(dir, "client_summary.csv"), summary);
+		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "final_summary.json"), summary);
+		Console.WriteLine($"Completed: {received} deliveries, p95={summary.LatencyP95Ms:F2}ms, ratio={summary.DeliveryRatio:P2}");
 	}
 
 	private IBenchmarkClient CreateClient(int id) => options.Protocol switch
