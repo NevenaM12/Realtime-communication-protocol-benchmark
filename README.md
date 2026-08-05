@@ -158,12 +158,14 @@ When both limits are supplied, the run stops when the first limit is reached.
 1. The load generator validates its command-line options.
 2. It creates `results/<runId>/` and writes `config.json`.
 3. It checks `/health` to ensure that the server is ready.
-4. It creates the requested clients and waits for all of them to connect.
-5. It applies the warm-up delay.
-6. It calls `/control/start` with the shared workload configuration.
-7. The server generates one common message stream for all connected clients.
-8. The load generator counts received deliveries and client errors.
-9. It calls `/control/stop`, cancels the clients, and disposes their connections.
+4. It estimates the client/server clock offset through `/time`.
+5. It creates the requested clients and waits for all of them to connect.
+6. It applies the warm-up delay.
+7. It calls `/control/start` with the shared workload configuration.
+8. The server generates one common message stream for all connected clients.
+9. The load generator collects latency, throughput, delivery, loss, setup-time, and byte metrics.
+10. It calls `/control/stop`, allows a cooldown period for queued deliveries, and then stops the clients.
+11. It writes per-client and aggregate result files.
 
 ## Current measurements
 
@@ -177,11 +179,7 @@ The committed server implementation samples:
 - active WebSocket, SSE, and Long Polling clients or requests
 - generated-message and backpressure counters
 
-The committed load generator currently reports basic delivery progress and client errors to the console. Detailed client-side metric aggregation is planned but is not part of the committed implementation yet.
-
-## Planned metrics
-
-The next load-generator milestone will add:
+The load generator measures:
 
 - client/server clock synchronization through `/time`
 - average, median, p95, p99, minimum, and maximum delivery latency
@@ -192,7 +190,7 @@ The next load-generator milestone will add:
 - estimated payload, encoded-message, protocol, and overhead bytes
 - Long Polling request and empty-response aggregation
 - optional bounded per-message logging
-- JSON and CSV client summaries
+- per-client metrics and JSON and CSV aggregate summaries
 
 ## Generated result files
 
@@ -203,17 +201,29 @@ When both settings use the same base directory, the current implementation produ
 ```text
 results/<runId>/
 |-- config.json
+|-- clock_sync.json
 |-- server_config.json
 |-- server_resources.jsonl
-`-- server_final_stats.json
+|-- server_final_stats.json
+|-- client_metrics.json
+|-- client_summary.json
+|-- client_summary.csv
+|-- final_summary.json
+`-- client_messages.jsonl    Optional; created with --raw-log true
 ```
 
 | File | Contents |
 |---|---|
 | `config.json` | Load-generator configuration |
+| `clock_sync.json` | Estimated clock offset and synchronization RTT statistics |
 | `server_config.json` | Configuration accepted by the server |
 | `server_resources.jsonl` | One server resource sample per line |
 | `server_final_stats.json` | Final server counters |
+| `client_metrics.json` | Delivery, loss, ordering, setup, disconnect, and error metrics for every client |
+| `client_summary.json` | Aggregate client-side benchmark metrics |
+| `client_summary.csv` | Aggregate client-side metrics in CSV format |
+| `final_summary.json` | Final aggregate result consumed by later analysis tooling |
+| `client_messages.jsonl` | Optional bounded raw record of received messages |
 
 ## Fair-comparison rules
 
@@ -227,9 +237,7 @@ results/<runId>/
 
 ## Current limitations
 
-- Planned protocol byte counts will be estimates rather than packet captures.
+- Protocol byte counts are estimates rather than packet captures.
 - `BackpressureEvents` currently combines full-channel writes and sends taking longer than 100 ms.
-- Detailed client-side latency, throughput, delivery-ratio, and loss metrics are not committed yet.
-- The current load generator counts deliveries but does not yet produce client summary files.
-- Planned clock synchronization will estimate an offset through repeated HTTP requests and will not replace operating-system clock synchronization.
+- Clock synchronization estimates an offset through repeated HTTP requests and does not replace operating-system clock synchronization.
 - Automated tests, analysis tooling, Docker orchestration, and experiment scripts are future milestones.
