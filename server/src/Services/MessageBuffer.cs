@@ -37,15 +37,21 @@ public sealed class MessageBuffer
 	public (IReadOnlyList<BenchmarkMessage> Messages, bool Truncated) ReadAfter(long lastId, int maxBatch)
 	{
 		lock (_gate)
+			return ReadAfterLocked(lastId, maxBatch);
+	}
+
+	public (IReadOnlyList<BenchmarkMessage> Messages, bool Truncated, Task ChangeTask) ReadAfterAndWatch(long lastId, int maxBatch)
+	{
+		lock (_gate)
 		{
-			var truncated = _items.Count > 0 && lastId < _items[0].Id - 1;
-			return (_items.Where(x => x.Id > lastId).Take(Math.Clamp(maxBatch, 1, 10000)).ToArray(), truncated);
+			var result = ReadAfterLocked(lastId, maxBatch);
+			return (result.Messages, result.Truncated, _changed.Task);
 		}
 	}
 
-	public Task WaitForChangeAsync(CancellationToken token)
+	private (IReadOnlyList<BenchmarkMessage> Messages, bool Truncated) ReadAfterLocked(long lastId, int maxBatch)
 	{
-		lock (_gate)
-			return _changed.Task.WaitAsync(token);
+		var truncated = _items.Count > 0 && lastId < _items[0].Id - 1;
+		return (_items.Where(x => x.Id > lastId).Take(Math.Clamp(maxBatch, 1, 10000)).ToArray(), truncated);
 	}
 }

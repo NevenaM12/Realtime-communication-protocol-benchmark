@@ -14,14 +14,15 @@ public static class LongPollingProtocol
 			Interlocked.Increment(ref state.PendingLongPollRequests);
 			try
 			{
-				var result = state.Buffer.ReadAfter(lastId, maxBatch ?? 100);
+				var initial = state.Buffer.ReadAfterAndWatch(lastId, maxBatch ?? 100);
+				var result = (initial.Messages, initial.Truncated);
 				if (result.Messages.Count == 0 && (timeoutMs ?? 30000) > 0)
 				{
 					using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
 					timeout.CancelAfter(Math.Clamp(timeoutMs ?? 30000, 1, 120000));
 					try
 					{
-						await state.Buffer.WaitForChangeAsync(timeout.Token);
+						await initial.ChangeTask.WaitAsync(timeout.Token);
 					}
 					catch (OperationCanceledException) when (!ctx.RequestAborted.IsCancellationRequested)
 					{
