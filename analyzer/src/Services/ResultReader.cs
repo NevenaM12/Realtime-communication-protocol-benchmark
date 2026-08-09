@@ -46,9 +46,12 @@ public static class ResultReader
 			if (summary is null || string.IsNullOrWhiteSpace(summary.RunId))
 				return null;
 
+			summary.TotalMessages = await ReadTotalMessagesAsync(directory);
+
 			var resourceSamples = await ReadResourceSamplesAsync(directory);
 			if (resourceSamples.Count > 0)
 			{
+				summary.HasServerResourceSamples = true;
 				summary.ServerCpuAvgPercent = resourceSamples.Average(sample => sample.ProcessCpuPercent);
 				summary.ServerCpuPeakPercent = resourceSamples.Max(sample => sample.ProcessCpuPercent);
 				summary.ServerMemoryAvgMB = resourceSamples.Average(sample => sample.ProcessMemoryRssBytes) / 1024d / 1024d;
@@ -60,6 +63,25 @@ public static class ResultReader
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
 		{
 			Console.Error.WriteLine($"Ignoring incomplete or corrupt run '{directory}': {ex.Message}");
+			return null;
+		}
+	}
+
+	private static async Task<long?> ReadTotalMessagesAsync(string directory)
+	{
+		var path = Path.Combine(directory, "config.json");
+		if (!File.Exists(path))
+			return null;
+
+		try
+		{
+			var configuration = JsonSerializer.Deserialize<RunConfiguration>(
+				await File.ReadAllTextAsync(path), Json);
+			return configuration?.TotalMessages;
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+		{
+			Console.Error.WriteLine($"Could not read optional configuration for '{directory}': {ex.Message}");
 			return null;
 		}
 	}
@@ -91,5 +113,10 @@ public static class ResultReader
 
 		[JsonPropertyName("process_memory_rss_bytes")]
 		public long ProcessMemoryRssBytes { get; set; }
+	}
+
+	private sealed class RunConfiguration
+	{
+		public long? TotalMessages { get; set; }
 	}
 }

@@ -9,6 +9,7 @@ public sealed class RunSummary
 	public int PayloadSizeBytes { get; set; }
 	public int MessageRatePerSecond { get; set; }
 	public int DurationSeconds { get; set; }
+	public long? TotalMessages { get; set; }
 
 	// client metrics
 	public long MessagesReceived { get; set; }
@@ -50,6 +51,7 @@ public sealed class RunSummary
 	public long EmptyPollResponses { get; set; }
 
 	// server resource usage metrics
+	public bool HasServerResourceSamples { get; set; }
 	public double ServerCpuAvgPercent { get; set; }
 	public double ServerCpuPeakPercent { get; set; }
 	public double ServerMemoryAvgMB { get; set; }
