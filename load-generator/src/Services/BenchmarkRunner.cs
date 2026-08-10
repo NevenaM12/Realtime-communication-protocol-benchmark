@@ -203,9 +203,8 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 		};
 		await File.WriteAllTextAsync(Path.Combine(dir, "server_final_stats.json"), finalJson);
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_metrics.json"), clientMetrics);
-		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_summary.json"), summary);
-		await ResultWriter.WriteSummaryCsvAsync(Path.Combine(dir, "client_summary.csv"), summary);
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "final_summary.json"), summary);
+		await ResultWriter.WriteSummaryCsvAsync(Path.Combine(dir, "final_summary.csv"), summary);
 		Console.WriteLine($"Completed: {received} deliveries, p95={summary.LatencyP95Ms:F2}ms, ratio={summary.DeliveryRatio:P2}");
 	}
 

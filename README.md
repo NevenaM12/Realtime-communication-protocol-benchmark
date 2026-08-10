@@ -206,9 +206,8 @@ results/<runId>/
 |-- server_resources.jsonl
 |-- server_final_stats.json
 |-- client_metrics.json
-|-- client_summary.json
-|-- client_summary.csv
 |-- final_summary.json
+|-- final_summary.csv
 `-- client_messages.jsonl    Optional; created with --raw-log true
 ```
 
@@ -220,9 +219,8 @@ results/<runId>/
 | `server_resources.jsonl` | One server resource sample per line |
 | `server_final_stats.json` | Final server counters |
 | `client_metrics.json` | Delivery, loss, ordering, setup, disconnect, and error metrics for every client |
-| `client_summary.json` | Aggregate client-side benchmark metrics |
-| `client_summary.csv` | Aggregate client-side metrics in CSV format |
-| `final_summary.json` | Final aggregate result consumed by later analysis tooling |
+| `final_summary.json` | Aggregate summary for this run; canonical input for later analysis tooling |
+| `final_summary.csv` | The same aggregate run summary in CSV format for spreadsheets and manual inspection |
 | `client_messages.jsonl` | Optional bounded raw record of received messages |
 
 ## Fair-comparison rules
