@@ -4,4 +4,5 @@
 	<Project Path="analyzer/BenchmarkAnalyzer.csproj" />
 	<Project Path="tests/LoadGenerator.Tests/LoadGenerator.Tests.csproj" />
 	<Project Path="tests/BenchmarkAnalyzer.Tests/BenchmarkAnalyzer.Tests.csproj" />
+	<Project Path="tests/BenchmarkServer.Tests/BenchmarkServer.Tests.csproj" />
 </Solution>
