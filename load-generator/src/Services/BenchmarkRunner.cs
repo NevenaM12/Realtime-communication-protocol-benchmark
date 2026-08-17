@@ -115,6 +115,8 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 					break;
 			}
 		}
+		stopwatch.Stop();
+		var measuredDurationSeconds = stopwatch.Elapsed.TotalSeconds;
 
 		Volatile.Write(ref benchmarkEnding, 1);
 		using var stop = await _http.PostAsync(options.ServerUrl.TrimEnd('/') + "/control/stop", null);
@@ -131,7 +133,6 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
 		}
 		catch (TimeoutException) { }
-		var measured = stopwatch.Elapsed.TotalSeconds;
 		foreach (var client in clients)
 			await client.DisposeAsync();
 
@@ -177,7 +178,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			MessagesGeneratedByServer = final.MessagesGenerated,
 			TheoreticalDeliveries = theoretical,
 			DeliveryRatio = theoretical == 0 ? 0 : uniqueReceived / (double)theoretical,
-			ThroughputMessagesPerSecond = ThroughputTracker.Calculate(received, measured),
+			ThroughputMessagesPerSecond = ThroughputTracker.Calculate(received, measuredDurationSeconds),
 			LatencyAvgMs = latency.Average,
 			LatencyMedianMs = latency.Percentile(.5),
 			LatencyP95Ms = latency.Percentile(.95),
