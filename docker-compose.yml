@@ -1,0 +1,39 @@
+services:
+  benchmark-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      RESULTS_DIR: ${CONTAINER_RESULTS_DIR:-/app/results}
+    volumes:
+      - ./results:/app/results
+    init: true
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+
+  load-generator:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: load-generator/Dockerfile
+    depends_on:
+      - benchmark-server
+    environment:
+      SERVER_URL: http://benchmark-server:8080
+    volumes:
+      - ./results:/app/results
+    init: true
+
+  analyzer:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: analyzer/Dockerfile
+    volumes:
+      - ./results:/app/results
+    init: true
