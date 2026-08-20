@@ -116,7 +116,9 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			}
 		}
 		stopwatch.Stop();
-		var measuredDurationSeconds = stopwatch.Elapsed.TotalSeconds;
+		var measuredDurationSeconds = ThroughputTracker.MeasurementSeconds(
+			stopwatch.Elapsed.TotalSeconds,
+			options.Duration);
 
 		Volatile.Write(ref benchmarkEnding, 1);
 		using var stop = await _http.PostAsync(options.ServerUrl.TrimEnd('/') + "/control/stop", null);

@@ -13,6 +13,14 @@ public class RateTrackerTests
 	}
 
 	[Fact]
+	public void Duration_limit_excludes_control_loop_overshoot()
+	{
+		Assert.Equal(5, ThroughputTracker.MeasurementSeconds(6.1, 5));
+		Assert.Equal(3.2, ThroughputTracker.MeasurementSeconds(3.2, 5));
+		Assert.Equal(6.1, ThroughputTracker.MeasurementSeconds(6.1, 0));
+	}
+
+	[Fact]
 	public void Calculates_average_and_p95_setup_time()
 	{
 		var setupTimes = Enumerable.Range(1, 100).Select(x => (double)x).ToArray();
