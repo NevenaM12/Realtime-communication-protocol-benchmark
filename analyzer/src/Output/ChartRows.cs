@@ -60,6 +60,18 @@ internal sealed class ThroughputChartRow : ChartRowBase
 	public double? ThroughputStandardDeviation { get; }
 }
 
+internal sealed class GenerationAchievementChartRow : ChartRowBase
+{
+	public GenerationAchievementChartRow(ProtocolAggregate value) : base(value)
+	{
+		AverageGenerationAchievementRatio = value.AverageGenerationAchievementRatio;
+		GenerationAchievementRatioStandardDeviation = value.GenerationAchievementRatioStandardDeviation;
+	}
+
+	public double AverageGenerationAchievementRatio { get; }
+	public double? GenerationAchievementRatioStandardDeviation { get; }
+}
+
 internal sealed class DeliveryRatioChartRow : ChartRowBase
 {
 	public DeliveryRatioChartRow(ProtocolAggregate value) : base(value)

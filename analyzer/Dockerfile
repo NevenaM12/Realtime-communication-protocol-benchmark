@@ -5,6 +5,7 @@ WORKDIR /src
 COPY analyzer/BenchmarkAnalyzer.csproj analyzer/
 RUN dotnet restore analyzer/BenchmarkAnalyzer.csproj
 
+COPY shared/ shared/
 COPY analyzer/ analyzer/
 RUN dotnet publish analyzer/BenchmarkAnalyzer.csproj \
 	--configuration ${BUILD_CONFIGURATION} \
@@ -16,4 +17,3 @@ FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "BenchmarkAnalyzer.dll"]
-

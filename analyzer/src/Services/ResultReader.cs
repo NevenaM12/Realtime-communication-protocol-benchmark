@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BenchmarkAnalyzer.Models;
+using BenchmarkShared;
 
 namespace BenchmarkAnalyzer.Services;
 
@@ -47,6 +48,13 @@ public static class ResultReader
 				return null;
 
 			summary.TotalMessages = await ReadTotalMessagesAsync(directory);
+			summary.TargetMessages = GenerationTarget.Messages(
+				summary.MessageRatePerSecond,
+				summary.DurationSeconds,
+				summary.TotalMessages);
+			summary.GenerationAchievementRatio = summary.TargetMessages <= 0
+				? 0
+				: summary.MessagesGeneratedByServer / (double)summary.TargetMessages;
 
 			var resourceSamples = await ReadResourceSamplesAsync(directory);
 			if (resourceSamples.Count > 0)

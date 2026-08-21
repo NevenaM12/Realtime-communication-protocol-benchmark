@@ -15,6 +15,8 @@ public sealed class RunSummary
 	public long MessagesReceived { get; set; }
 	public long UniqueMessagesReceived { get; set; }
 	public long MessagesGeneratedByServer { get; set; }
+	public long TargetMessages { get; set; }
+	public double GenerationAchievementRatio { get; set; }
 	public long TheoreticalDeliveries { get; set; }
 	public double DeliveryRatio { get; set; }
 	public double ThroughputMessagesPerSecond { get; set; }

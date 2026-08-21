@@ -19,7 +19,8 @@ public class ResultReaderTests
 			  "clients": 10,
 			  "payloadSizeBytes": 1024,
 			  "messageRatePerSecond": 100,
-			  "durationSeconds": 60
+			  "durationSeconds": 60,
+			  "messagesGeneratedByServer": 5700
 			}
 			""");
 			await File.WriteAllTextAsync(Path.Combine(completeRun.FullName, "config.json"), """
@@ -38,6 +39,8 @@ public class ResultReaderTests
 			var run = Assert.Single(runs);
 			Assert.Equal("ws-1", run.RunId);
 			Assert.Equal(6000, run.TotalMessages);
+			Assert.Equal(6000, run.TargetMessages);
+			Assert.Equal(0.95, run.GenerationAchievementRatio, 5);
 			Assert.True(run.HasServerResourceSamples);
 			Assert.Equal(20, run.ServerCpuAvgPercent);
 			Assert.Equal(30, run.ServerCpuPeakPercent);

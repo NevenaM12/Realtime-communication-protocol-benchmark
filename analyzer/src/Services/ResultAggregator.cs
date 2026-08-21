@@ -38,6 +38,9 @@ public static class ResultAggregator
 			RunCount = runs.Length,
 			AverageThroughputMessagesPerSecond = runs.Average(run => run.ThroughputMessagesPerSecond),
 			ThroughputStandardDeviation = SampleStandardDeviation(runs.Select(run => run.ThroughputMessagesPerSecond)),
+			AverageGenerationAchievementRatio = runs.Average(run => run.GenerationAchievementRatio),
+			GenerationAchievementRatioStandardDeviation = SampleStandardDeviation(
+				runs.Select(run => run.GenerationAchievementRatio)),
 			AverageDeliveryRatio = runs.Average(run => run.DeliveryRatio),
 			DeliveryRatioStandardDeviation = SampleStandardDeviation(runs.Select(run => run.DeliveryRatio)),
 			AverageMessageLossRate = runs.Average(run => run.MessageLossRate),

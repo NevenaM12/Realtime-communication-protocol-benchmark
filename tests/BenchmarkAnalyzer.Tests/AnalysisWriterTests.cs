@@ -35,6 +35,7 @@ public class AnalysisWriterTests
 				"latency_p95_vs_clients.csv",
 				"latency_p99_vs_clients.csv",
 				"throughput_vs_clients.csv",
+				"generation_achievement_vs_message_rate.csv",
 				"delivery_ratio_vs_clients.csv",
 				"message_loss_vs_clients.csv",
 				"cpu_vs_clients.csv",

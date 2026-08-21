@@ -18,6 +18,9 @@ internal static class ChartDataWriter
 			Path.Combine(outputDir, "throughput_vs_clients.csv"),
 			aggregates.Select(value => new ThroughputChartRow(value)));
 		await CsvWriter.WriteAsync(
+			Path.Combine(outputDir, "generation_achievement_vs_message_rate.csv"),
+			aggregates.Select(value => new GenerationAchievementChartRow(value)));
+		await CsvWriter.WriteAsync(
 			Path.Combine(outputDir, "delivery_ratio_vs_clients.csv"),
 			aggregates.Select(value => new DeliveryRatioChartRow(value)));
 		await CsvWriter.WriteAsync(

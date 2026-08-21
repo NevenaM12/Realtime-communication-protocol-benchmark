@@ -12,6 +12,8 @@ public sealed class ProtocolAggregate
 	public int RunCount { get; set; }
 	public double AverageThroughputMessagesPerSecond { get; set; }
 	public double? ThroughputStandardDeviation { get; set; }
+	public double AverageGenerationAchievementRatio { get; set; }
+	public double? GenerationAchievementRatioStandardDeviation { get; set; }
 	public double AverageDeliveryRatio { get; set; }
 	public double? DeliveryRatioStandardDeviation { get; set; }
 	public double AverageMessageLossRate { get; set; }
