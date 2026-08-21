@@ -5,4 +5,8 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="..\shared\GenerationTarget.cs" Link="Shared\GenerationTarget.cs" />
+	</ItemGroup>
 </Project>

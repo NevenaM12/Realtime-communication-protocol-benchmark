@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
+using BenchmarkShared;
 using LoadGenerator.Cli;
 using LoadGenerator.Clients;
 using LoadGenerator.Metrics;
@@ -161,6 +162,10 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			.ToArray();
 		var loss = trackers.Values.Sum(x => x.Missing);
 		var uniqueReceived = trackers.Values.Sum(x => x.UniqueCount);
+		var targetMessages = GenerationTarget.Messages(
+			options.Rate,
+			options.Duration,
+			options.TotalMessages);
 		var theoretical = final.MessagesGenerated * options.Clients;
 		var pollRequests = clients.Sum(c => c.PollRequests);
 		var estimatedProtocolBytes = options.Protocol == "lp"
@@ -178,6 +183,10 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			MessagesReceived = received,
 			UniqueMessagesReceived = uniqueReceived,
 			MessagesGeneratedByServer = final.MessagesGenerated,
+			TargetMessages = targetMessages,
+			GenerationAchievementRatio = GenerationTarget.AchievementRatio(
+				final.MessagesGenerated,
+				targetMessages),
 			TheoreticalDeliveries = theoretical,
 			DeliveryRatio = theoretical == 0 ? 0 : uniqueReceived / (double)theoretical,
 			ThroughputMessagesPerSecond = ThroughputTracker.Calculate(received, measuredDurationSeconds),
@@ -208,7 +217,9 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "client_metrics.json"), clientMetrics);
 		await ResultWriter.WriteJsonAsync(Path.Combine(dir, "final_summary.json"), summary);
 		await ResultWriter.WriteSummaryCsvAsync(Path.Combine(dir, "final_summary.csv"), summary);
-		Console.WriteLine($"Completed: {received} deliveries, p95={summary.LatencyP95Ms:F2}ms, ratio={summary.DeliveryRatio:P2}");
+		Console.WriteLine(
+			$"Completed: {received} deliveries, p95={summary.LatencyP95Ms:F2}ms, " +
+			$"delivery={summary.DeliveryRatio:P2}, generation={summary.GenerationAchievementRatio:P2}");
 	}
 
 	private IBenchmarkClient CreateClient(int id) => options.Protocol switch

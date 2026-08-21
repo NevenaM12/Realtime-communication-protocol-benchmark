@@ -184,6 +184,7 @@ The load generator measures:
 - client/server clock synchronization through `/time`
 - average, median, p95, p99, minimum, and maximum delivery latency
 - delivered-message throughput
+- target message count and generation achievement ratio
 - delivery ratio
 - missing, duplicate, and out-of-order message detection
 - average and p95 connection setup time

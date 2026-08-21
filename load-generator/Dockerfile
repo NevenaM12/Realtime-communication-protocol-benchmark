@@ -5,6 +5,7 @@ WORKDIR /src
 COPY load-generator/LoadGenerator.csproj load-generator/
 RUN dotnet restore load-generator/LoadGenerator.csproj
 
+COPY shared/ shared/
 COPY load-generator/ load-generator/
 RUN dotnet publish load-generator/LoadGenerator.csproj \
 	--configuration ${BUILD_CONFIGURATION} \
@@ -17,4 +18,3 @@ WORKDIR /app
 ENV SERVER_URL=http://benchmark-server:8080
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "LoadGenerator.dll"]
-

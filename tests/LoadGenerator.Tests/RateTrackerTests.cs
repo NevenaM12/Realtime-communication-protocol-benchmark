@@ -1,5 +1,6 @@
 using Xunit;
 using LoadGenerator.Metrics;
+using BenchmarkShared;
 
 namespace LoadGenerator.Tests;
 
@@ -18,6 +19,27 @@ public class RateTrackerTests
 		Assert.Equal(5, ThroughputTracker.MeasurementSeconds(6.1, 5));
 		Assert.Equal(3.2, ThroughputTracker.MeasurementSeconds(3.2, 5));
 		Assert.Equal(6.1, ThroughputTracker.MeasurementSeconds(6.1, 0));
+	}
+
+	[Theory]
+	[InlineData(100, 10, null, 1000L)]
+	[InlineData(100, 0, 750L, 750L)]
+	[InlineData(100, 10, 750L, 750L)]
+	[InlineData(100, 10, 2000L, 1000L)]
+	public void Calculates_generation_target_from_the_first_active_limit(
+		int rate,
+		int duration,
+		long? totalMessages,
+		long expected)
+	{
+		Assert.Equal(expected, GenerationTarget.Messages(rate, duration, totalMessages));
+	}
+
+	[Fact]
+	public void Calculates_generation_achievement_without_hiding_shortfall()
+	{
+		Assert.Equal(0.9, GenerationTarget.AchievementRatio(900, 1000), 5);
+		Assert.Equal(0, GenerationTarget.AchievementRatio(900, 0));
 	}
 
 	[Fact]
