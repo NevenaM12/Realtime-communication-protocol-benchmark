@@ -9,7 +9,10 @@ public static class BenchmarkServerApplication
 	public static WebApplication Build(string[] args, string? urls = null)
 	{
 		var builder = WebApplication.CreateBuilder(args);
-		builder.WebHost.UseUrls(urls ?? "http://0.0.0.0:8080");
+		builder.WebHost.UseUrls(
+			urls
+			?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
+			?? "http://0.0.0.0:8080");
 		builder.Services.AddSingleton<BenchmarkState>();
 		builder.Services.AddSingleton<MessageGenerator>();
 		builder.Services.AddSingleton<ResourceSampler>();
