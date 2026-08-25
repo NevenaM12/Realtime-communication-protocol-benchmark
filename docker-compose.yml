@@ -1,5 +1,7 @@
 services:
   benchmark-server:
+    image: benchmark-realtime-server:local
+    pull_policy: never
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -17,6 +19,8 @@ services:
         hard: 1048576
 
   load-generator:
+    image: benchmark-realtime-load-generator:local
+    pull_policy: never
     profiles: [tools]
     build:
       context: .
@@ -30,6 +34,8 @@ services:
     init: true
 
   analyzer:
+    image: benchmark-realtime-analyzer:local
+    pull_policy: never
     profiles: [tools]
     build:
       context: .
