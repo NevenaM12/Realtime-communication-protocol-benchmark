@@ -41,16 +41,23 @@ public static class WebSocketProtocol
 		finally
 		{
 			state.WebSockets.TryRemove(id, out _);
-			if (socket.State == WebSocketState.Open)
+			try
 			{
-				try
+				if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
 				{
-					await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "benchmark ended", CancellationToken.None);
+					using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+					await socket.CloseOutputAsync(
+						WebSocketCloseStatus.NormalClosure,
+						"benchmark ended",
+						closeCts.Token);
 				}
-				catch (WebSocketException)
-				{
-					// The client may close its transport before completing the close handshake.
-				}
+			}
+			catch (OperationCanceledException) { }
+			catch (WebSocketException) { }
+			finally
+			{
+				if (socket.State is not WebSocketState.Closed and not WebSocketState.Aborted)
+					socket.Abort();
 			}
 		}
 	});

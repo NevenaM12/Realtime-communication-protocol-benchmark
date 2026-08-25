@@ -7,6 +7,7 @@ namespace LoadGenerator.Clients;
 
 public sealed class WebSocketBenchmarkClient(int id, string serverUrl) : IBenchmarkClient
 {
+	private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
 	private readonly ClientWebSocket _socket = new();
 
 	public int Id => id;
@@ -44,12 +45,24 @@ public sealed class WebSocketBenchmarkClient(int id, string serverUrl) : IBenchm
 
 	public async ValueTask DisposeAsync()
 	{
-		if (_socket.State == WebSocketState.Open)
-			try
+		try
+		{
+			if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
 			{
-				await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+				using var closeCts = new CancellationTokenSource(CloseTimeout);
+				await _socket.CloseOutputAsync(
+					WebSocketCloseStatus.NormalClosure,
+					"done",
+					closeCts.Token);
 			}
-			catch { }
-		_socket.Dispose();
+		}
+		catch (OperationCanceledException) { }
+		catch (WebSocketException) { }
+		finally
+		{
+			if (_socket.State is not WebSocketState.Closed and not WebSocketState.Aborted)
+				_socket.Abort();
+			_socket.Dispose();
+		}
 	}
 }

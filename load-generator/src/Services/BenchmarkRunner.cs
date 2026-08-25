@@ -136,8 +136,12 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
 		}
 		catch (TimeoutException) { }
-		foreach (var client in clients)
-			await client.DisposeAsync();
+		await Task.WhenAll(clients.Select(client => client.DisposeAsync().AsTask()));
+		try
+		{
+			await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
+		}
+		catch (TimeoutException) { }
 
 		foreach (var tracker in trackers.Values)
 			tracker.Complete(final.MessagesGenerated);
