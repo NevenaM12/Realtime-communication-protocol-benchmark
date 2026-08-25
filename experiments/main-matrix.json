@@ -1,0 +1,121 @@
+{
+  "name": "thesis-experiments",
+  "repetitions": 5,
+  "warmupSeconds": 5,
+  "cooldownSeconds": 5,
+  "clockSyncSamples": 20,
+  "scenarios": [
+    {
+      "name": "baseline",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-1",
+      "clients": 1,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-10",
+      "clients": 10,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-100",
+      "clients": 100,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-250",
+      "clients": 250,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-375",
+      "clients": 375,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-500",
+      "clients": 500,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-100",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 100,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-1000",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 1000,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-2000",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 2000,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-2500",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 2500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-3000",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 3000,
+      "durationSeconds": 30
+    },
+    {
+      "name": "payload-64",
+      "clients": 10,
+      "payloadSize": 64,
+      "rate": 100,
+      "durationSeconds": 30
+    },
+    {
+      "name": "payload-1024",
+      "clients": 10,
+      "payloadSize": 1024,
+      "rate": 100,
+      "durationSeconds": 30
+    },
+    {
+      "name": "payload-16384",
+      "clients": 10,
+      "payloadSize": 16384,
+      "rate": 100,
+      "durationSeconds": 30
+    },
+    {
+      "name": "payload-65536",
+      "clients": 10,
+      "payloadSize": 65536,
+      "rate": 100,
+      "durationSeconds": 30
+    }
+  ]
+}

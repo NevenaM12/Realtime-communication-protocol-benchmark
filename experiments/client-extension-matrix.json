@@ -1,0 +1,30 @@
+{
+  "name": "client-extension",
+  "repetitions": 5,
+  "warmupSeconds": 5,
+  "cooldownSeconds": 5,
+  "clockSyncSamples": 20,
+  "scenarios": [
+    {
+      "name": "clients-1000",
+      "clients": 1000,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-2000",
+      "clients": 2000,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "clients-5000",
+      "clients": 5000,
+      "payloadSize": 1024,
+      "rate": 500,
+      "durationSeconds": 30
+    }
+  ]
+}

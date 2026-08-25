@@ -1,0 +1,30 @@
+{
+  "name": "boundary-confirmation",
+  "repetitions": 5,
+  "warmupSeconds": 5,
+  "cooldownSeconds": 5,
+  "clockSyncSamples": 20,
+  "scenarios": [
+    {
+      "name": "rate-2500",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 2500,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-2750",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 2750,
+      "durationSeconds": 30
+    },
+    {
+      "name": "rate-3000",
+      "clients": 50,
+      "payloadSize": 1024,
+      "rate": 3000,
+      "durationSeconds": 30
+    }
+  ]
+}
