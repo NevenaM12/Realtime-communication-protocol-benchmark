@@ -1,96 +1,109 @@
 # Real-Time Protocol Benchmark
 
-This repository contains a .NET 8 benchmark for comparing three server-to-client real-time communication protocols:
+This repository contains a .NET 8 benchmark environment for comparing three server-to-client real-time communication approaches under equivalent workloads:
 
 - raw WebSocket
 - Server-Sent Events (SSE)
 - Long Polling
 
-The goal is to compare latency, delivered-message throughput, delivery reliability, connection setup time, CPU and memory usage, and estimated protocol overhead under equivalent workloads.
+The benchmark measures delivery latency, delivered-message throughput, delivery reliability, connection setup time, CPU and memory usage, and estimated application-level protocol overhead.
 
-All protocols use the same server-side message generator and the same `BenchmarkMessage` format. This ensures that protocol implementations are compared using identical message IDs, timestamps, payloads, rates, and run limits.
+All three approaches use the same server-side `MessageGenerator` and the same `BenchmarkMessage` format. A run therefore uses identical message IDs, timestamps, payloads, rates, durations, and message limits regardless of protocol.
 
 ## Repository structure
 
 ```text
 .
-|-- server/            ASP.NET Core benchmark server
-|-- load-generator/    .NET console application that simulates clients
-|-- results/           Generated benchmark output created after a run
-|-- BenchmarkRealtimeProtocols.sln
-`-- BenchmarkRealtimeProtocols.slnx
+|-- server/             ASP.NET Core benchmark server
+|-- load-generator/     .NET console application that simulates clients
+|-- analyzer/           Offline result aggregation and chart-data generator
+|-- tests/              Server, load-generator, and analyzer tests
+|-- experiments/        Reproducible experiment matrices used by the thesis
+|-- scripts/            Docker runners and shared validation functions
+|-- results/            Generated benchmark output; ignored by Git
+|-- docker-compose.yml  Server, load-generator, and analyzer services
+`-- BenchmarkRealtimeProtocols.sln
 ```
-
-The analyzer, automated tests, Docker configuration, and experiment scripts are planned as later project milestones.
 
 ## Requirements
 
-- .NET 8 SDK
-- PowerShell examples below, or an equivalent shell
-- Port `8080` available for the server
+Choose one of the following workflows:
 
-Verify the SDK:
+- Docker Desktop with Docker Compose and PowerShell for containerized experiments
+- .NET 8 SDK for direct local execution, building, and testing
+
+Port `8080` must be available when the server is run directly with .NET or when Docker Compose uses the default host-port configuration. The automated experiment scripts select an available host port for each run.
+
+Verify the installed tools as applicable:
 
 ```powershell
+docker --version
+docker compose version
 dotnet --version
 ```
 
-Build the complete solution:
+Build and test the complete solution directly with .NET:
 
 ```powershell
-dotnet build .\BenchmarkRealtimeProtocols.slnx
+dotnet build .\BenchmarkRealtimeProtocols.sln
+dotnet test .\BenchmarkRealtimeProtocols.sln
 ```
 
-## Running the server directly with .NET
+## Applications
 
-The currently supported workflow starts the server as a .NET process on the same computer as the load generator. The server listens on port `8080` and is available from that computer at `http://localhost:8080`.
+### Benchmark server
 
-Optional: set a writable server results directory before starting it:
-
-```powershell
-$env:RESULTS_DIR = "$PWD\results"
-dotnet run --project .\server\BenchmarkServer.csproj
-```
-
-If `RESULTS_DIR` is not set, the applications use `/app/results`, which is intended for their future Docker environment.
-
-### Server endpoints
+`BenchmarkServer` is an ASP.NET Core application that implements all three communication approaches and exposes the control and diagnostic endpoints used by the load generator.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/health` | Check whether the server is running |
-| `GET` | `/time` | Return server time for planned client clock synchronization |
-| `POST` | `/control/start` | Start a benchmark run |
+| `GET` | `/health` | Check whether the server is available |
+| `GET` | `/time` | Return server time for client/server clock synchronization |
+| `POST` | `/control/start` | Start message generation for a benchmark run |
 | `POST` | `/control/stop` | Stop the active run and return final server statistics |
 | `GET` | `/stats` | Return current server counters |
 | `GET` | `/ws` | Open a raw WebSocket connection |
 | `GET` | `/sse` | Open an SSE stream |
 | `GET` | `/lp` | Issue a Long Polling request |
 
-## Running the load generator
+The server URL can be configured through `ASPNETCORE_URLS`. If it is not configured, the server listens on `http://0.0.0.0:8080`.
 
-Arguments for the application follow the `--` separator used by `dotnet run`:
+To run it directly from the repository root, set a writable result directory and start the project:
+
+```powershell
+$env:RESULTS_DIR = "$PWD\results\manual-test"
+dotnet run --project .\server\BenchmarkServer.csproj
+```
+
+Keep this terminal open while the load generator runs.
+
+### Load generator
+
+`LoadGenerator` creates programmatic WebSocket, SSE, or Long Polling clients. It waits for every client to connect, estimates the clock offset through `/time`, applies the warm-up delay, and then starts the common server-side message generator.
+
+Run one WebSocket scenario directly with .NET:
 
 ```powershell
 dotnet run --project .\load-generator\LoadGenerator.csproj -- `
   --protocol ws `
-  --clients 10 `
+  --clients 50 `
   --payload-size 1024 `
-  --rate 100 `
-  --duration 60 `
+  --rate 500 `
+  --duration 30 `
+  --run-id manual-ws-01 `
   --server-url http://localhost:8080 `
-  --output-dir .\results
+  --output-dir .\results\manual-test
 ```
 
-Valid protocol values are:
+Valid `--protocol` values are:
 
-| Value | Protocol |
+| Value | Communication approach |
 |---|---|
 | `ws` | WebSocket |
 | `sse` | Server-Sent Events |
 | `lp` | Long Polling |
 
-### Load-generator options
+#### Load-generator options
 
 | Option | Default | Description |
 |---|---:|---|
@@ -100,21 +113,21 @@ Valid protocol values are:
 | `--rate` | `10` | Messages generated per second |
 | `--duration` | `60` | Duration in seconds when no message limit is supplied |
 | `--total-messages` | none | Maximum number of messages generated by the server |
-| `--run-id` | generated | Identifier used for the result directory |
-| `--server-url` | `http://benchmark-server:8080` | Benchmark server base URL |
-| `--warmup-seconds` | `5` | Delay after clients connect and before generation starts |
-| `--cooldown-seconds` | `2` | Delay after the run stops |
+| `--run-id` | generated | Identifier and result-directory name for the run |
+| `--server-url` | `SERVER_URL` or `http://benchmark-server:8080` | Benchmark server base URL |
+| `--warmup-seconds` | `5` | Delay after all clients connect and before generation starts |
+| `--cooldown-seconds` | `2` | Delay after generation stops |
 | `--long-poll-timeout-ms` | `30000` | Long Polling request timeout |
 | `--long-poll-max-batch` | `100` | Maximum messages returned by one poll |
 | `--output-dir` | `/app/results` | Root result directory |
-| `--raw-log` | `false` | Reserved for optional per-message logging in the metrics milestone |
-| `--raw-log-limit` | `100000` | Reserved limit for future raw message records |
-| `--setup-timeout-seconds` | `60` | Maximum time allowed for health checks and connections |
-| `--clock-sync-samples` | `10` | Reserved for the future clock-synchronization milestone |
+| `--raw-log` | `false` | Write a bounded per-message JSONL log |
+| `--raw-log-limit` | `100000` | Maximum number of raw message records |
+| `--setup-timeout-seconds` | `60` | Maximum time for health checks and client connections |
+| `--clock-sync-samples` | `10` | Number of `/time` requests used for clock-offset estimation |
 
-For local execution, explicitly use `--server-url http://localhost:8080` and a writable `--output-dir`.
+For direct local execution, explicitly use `--server-url http://localhost:8080` and a writable `--output-dir` that shares the same base directory as the server's `RESULTS_DIR`.
 
-### Run limits
+#### Run limits
 
 A run can be limited by duration, total message count, or both.
 
@@ -138,69 +151,131 @@ dotnet run --project .\load-generator\LoadGenerator.csproj -- `
   --output-dir .\results
 ```
 
-When `--total-messages` is supplied without `--duration`, no duration limit is applied. The runner waits until the server generates the requested number of messages.
+When `--total-messages` is supplied without `--duration`, no duration limit is applied. If both limits are supplied, the run stops when the first limit is reached.
 
-Both limits:
+### Analyzer
+
+`BenchmarkAnalyzer` runs after experiments have completed. It recursively finds complete runs containing `final_summary.json`, reads server resource samples, groups equivalent repetitions, calculates averages and sample standard deviations, and writes aggregate JSON and CSV results.
+
+Run it directly with .NET:
 
 ```powershell
-dotnet run --project .\load-generator\LoadGenerator.csproj -- `
-  --protocol ws `
-  --duration 60 `
-  --total-messages 10000 `
-  --server-url http://localhost:8080 `
-  --output-dir .\results
+dotnet run --project .\analyzer\BenchmarkAnalyzer.csproj -- `
+  --results-dir .\results\manual-test `
+  --output-dir .\results\manual-test\analysis
 ```
 
-When both limits are supplied, the run stops when the first limit is reached.
+If `--output-dir` is omitted, the analyzer writes to `<results-dir>/analysis`.
+
+## Automated Docker experiments
+
+The Docker workflow builds and runs the server, load generator, and analyzer in separate containers. Results are mounted into the repository's `results/` directory.
+
+### One scenario
+
+Run one scenario for a selected protocol:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  .\scripts\run-docker-single.ps1 `
+  -Protocol ws `
+  -Clients 50 `
+  -PayloadSize 1024 `
+  -Rate 500 `
+  -DurationSeconds 30 `
+  -TotalMessages 0 `
+  -BatchName manual-docker `
+  -RunId ws-manual-01
+```
+
+`-TotalMessages 0` disables the message-count limit in this duration-only example. The script validates the generated files and runs the analyzer unless `-SkipAnalysis` is supplied.
+
+### Experiment matrices
+
+The matrix runner requires a JSON configuration file and executes every scenario for `ws`, `sse`, and `lp`. It rotates protocol order between repetitions, records checkpoints, supports resuming an interrupted batch, validates every completed run, and starts the analyzer after all runs finish.
+
+Generic command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  .\scripts\run-docker-matrix.ps1 `
+  -ConfigPath .\experiments\MATRIX_FILE `
+  -BatchName BATCH_NAME
+```
+
+The thesis experiments are defined by:
+
+| Matrix | Purpose | Expected runs |
+|---|---|---:|
+| `experiments/main-matrix.json` | Main set with 16 scenarios | 240 |
+| `experiments/client-extension-matrix.json` | Scenarios with 1,000, 2,000, and 5,000 clients | 45 |
+| `experiments/boundary-confirmation-matrix.json` | Message-rate saturation confirmation | 45 |
+
+For example, reproduce the main matrix with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  .\scripts\run-docker-matrix.ps1 `
+  -ConfigPath .\experiments\main-matrix.json `
+  -BatchName main-reproduction
+```
+
+Resume an interrupted batch by using the same configuration and batch name:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  .\scripts\run-docker-matrix.ps1 `
+  -ConfigPath .\experiments\main-matrix.json `
+  -BatchName main-reproduction `
+  -Resume
+```
+
+The script refuses to resume a batch if the configuration file differs from the saved configuration.
 
 ## Benchmark flow
 
-1. The load generator validates its command-line options.
-2. It creates `results/<runId>/` and writes `config.json`.
-3. It checks `/health` to ensure that the server is ready.
-4. It estimates the client/server clock offset through `/time`.
-5. It creates the requested clients and waits for all of them to connect.
-6. It applies the warm-up delay.
-7. It calls `/control/start` with the shared workload configuration.
-8. The server generates one common message stream for all connected clients.
-9. The load generator collects latency, throughput, delivery, loss, setup-time, and byte metrics.
-10. It calls `/control/stop`, allows a cooldown period for queued deliveries, and then stops the clients.
-11. It writes per-client and aggregate result files.
+1. Validate command-line options and the selected experiment scenario.
+2. Start the benchmark server and verify `/health`.
+3. Estimate the client/server clock offset through repeated `/time` requests.
+4. Create the selected protocol clients and wait for all of them to connect.
+5. Apply the warm-up delay.
+6. Call `/control/start` with the common workload configuration.
+7. Generate one canonical message stream for all connected clients.
+8. Collect delivery, latency, loss, ordering, setup-time, byte, and server-resource metrics.
+9. Call `/control/stop`, apply the cooldown delay, and stop the clients.
+10. Validate and store the individual run output.
+11. After a matrix completes, aggregate all valid runs with the analyzer.
 
-## Current measurements
+## Collected metrics
 
-The committed server implementation samples:
+The server samples the following values once per second during active measurement:
 
-- process CPU percentage and resident memory
+- process CPU percentage and resident/working memory
 - managed heap and total allocated bytes
-- garbage-collection counts
-- process thread count
+- garbage-collection counts and process thread count
 - Linux cgroup CPU and memory values when available
-- active WebSocket, SSE, and Long Polling clients or requests
-- generated-message and backpressure counters
+- active WebSocket and SSE clients and pending Long Polling requests
+- generated-message, send-error, timeout, truncation, and backpressure counters
 
 The load generator measures:
 
-- client/server clock synchronization through `/time`
-- average, median, p95, p99, minimum, and maximum delivery latency
+- average, median, minimum, maximum, p95, and p99 delivery latency
 - delivered-message throughput
-- target message count and generation achievement ratio
-- delivery ratio
-- missing, duplicate, and out-of-order message detection
+- target message count and generation-achievement ratio
+- delivery ratio and missing-message count
+- duplicate and out-of-order deliveries
 - average and p95 connection setup time
 - estimated payload, encoded-message, protocol, and overhead bytes
-- Long Polling request and empty-response aggregation
+- Long Polling request, empty-response, and response-body aggregation
+- client errors and unexpected disconnects
 - optional bounded per-message logging
-- per-client metrics and JSON and CSV aggregate summaries
 
 ## Generated result files
 
-These files are created at runtime after a benchmark is started; they are generated output, not source files that must already exist in the repository. The load generator writes `config.json` under its `--output-dir`, while the server writes its files under `RESULTS_DIR`.
-
-When both settings use the same base directory, the current implementation produces this structure:
+For each run, the server and load generator write into the same run directory:
 
 ```text
-results/<runId>/
+results/<batch-name>/<run-id>/
 |-- config.json
 |-- clock_sync.json
 |-- server_config.json
@@ -220,23 +295,41 @@ results/<runId>/
 | `server_resources.jsonl` | One server resource sample per line |
 | `server_final_stats.json` | Final server counters |
 | `client_metrics.json` | Delivery, loss, ordering, setup, disconnect, and error metrics for every client |
-| `final_summary.json` | Aggregate summary for this run; canonical input for later analysis tooling |
-| `final_summary.csv` | The same aggregate run summary in CSV format for spreadsheets and manual inspection |
+| `final_summary.json` | Canonical aggregate summary for one completed run |
+| `final_summary.csv` | The same aggregate run summary as CSV |
 | `client_messages.jsonl` | Optional bounded raw record of received messages |
+
+The analyzer writes:
+
+```text
+results/<batch-name>/analysis/
+|-- run_summaries.json
+|-- run_summaries.csv
+|-- analysis_summary.json
+|-- protocol_aggregates.csv
+`-- chart-data/
+```
+
+`chart-data/` contains 27 CSV files: nine metric views for each of the three experiment dimensions (`clients`, `message_rate`, and `payload_size`). The metric views cover p95 and p99 latency, throughput, generation achievement, delivery ratio, message loss, CPU, memory, and estimated protocol overhead.
+
+Generated results are ignored by Git and should not be committed as source files.
 
 ## Fair-comparison rules
 
-- Every protocol uses the same message generator.
-- Every generated message uses the same model and deterministic `A` payload.
-- Message IDs increase monotonically from `1` in every run.
+- Every protocol uses the same message generator and `BenchmarkMessage` model.
+- Every run starts message IDs at `1` and uses a deterministic `A` payload.
 - Compression is disabled.
 - Clients connect before `/control/start` is called.
-- Client count, payload size, rate, limits, warm-up, and cooldown must be equal when comparing protocols.
-- Benchmark order should be randomized or rotated, and each scenario should be repeated.
+- Client count, payload size, rate, limits, warm-up, and cooldown remain equal when protocols are compared.
+- Protocol order rotates between repetitions to reduce ordering bias.
+- Thesis scenarios are repeated five times.
 
-## Current limitations
+## Limitations
 
-- Protocol byte counts are estimates rather than packet captures.
-- `BackpressureEvents` currently combines full-channel writes and sends taking longer than 100 ms.
-- Clock synchronization estimates an offset through repeated HTTP requests and does not replace operating-system clock synchronization.
-- Automated tests, analysis tooling, Docker orchestration, and experiment scripts are future milestones.
+- Protocol byte counts are application-level estimates rather than packet captures.
+- `BackpressureEvents` combines full-channel writes and sends taking longer than 100 ms.
+- Clock synchronization estimates an offset through HTTP requests and does not replace operating-system clock synchronization across separate hosts.
+- Programmatic clients do not include browser rendering or browser-specific processing overhead.
+- Local experiments do not reproduce public-network delay, packet loss, proxies, or TLS overhead.
+- Results at very high client counts can be limited by the available host hardware and Docker resource allocation.
+- Thirty-second generation phases describe short-term behavior rather than long-term stability.
