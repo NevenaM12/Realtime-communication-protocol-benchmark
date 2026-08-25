@@ -30,20 +30,18 @@ public class AnalysisWriterTests
 			Assert.True(File.Exists(Path.Combine(output, "analysis_summary.json")));
 			Assert.True(File.Exists(Path.Combine(output, "protocol_aggregates.csv")));
 			var chartDataDir = Path.Combine(output, "chart-data");
-			var expectedChartFiles = new[]
+			var metrics = new[]
 			{
-				"latency_p95_vs_clients.csv",
-				"latency_p99_vs_clients.csv",
-				"throughput_vs_clients.csv",
-				"generation_achievement_vs_message_rate.csv",
-				"delivery_ratio_vs_clients.csv",
-				"message_loss_vs_clients.csv",
-				"cpu_vs_clients.csv",
-				"memory_vs_clients.csv",
-				"overhead_vs_payload_size.csv"
+				"latency_p95", "latency_p99", "throughput", "generation_achievement",
+				"delivery_ratio", "message_loss", "cpu", "memory", "overhead"
 			};
+			var axes = new[] { "clients", "message_rate", "payload_size" };
+			var expectedChartFiles = metrics
+				.SelectMany(metric => axes.Select(axis => $"{metric}_vs_{axis}.csv"))
+				.ToArray();
 			foreach (var file in expectedChartFiles)
 				Assert.True(File.Exists(Path.Combine(chartDataDir, file)), $"Missing chart data file: {file}");
+			Assert.Equal(27, Directory.EnumerateFiles(chartDataDir, "*.csv").Count());
 
 			var throughputCsv = await File.ReadAllTextAsync(Path.Combine(chartDataDir, "throughput_vs_clients.csv"));
 			Assert.StartsWith("Protocol,Clients,PayloadSizeBytes,MessageRatePerSecond,DurationSeconds,TotalMessages,RunCount", throughputCsv);
