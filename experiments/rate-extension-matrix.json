@@ -1,29 +1,39 @@
 {
-  "name": "boundary-confirmation",
+  "name": "rate-extension",
+  "protocols": [
+    "ws",
+    "sse",
+    "lp"
+  ],
   "repetitions": 5,
   "warmupSeconds": 5,
   "cooldownSeconds": 5,
   "clockSyncSamples": 20,
+  "defaults": {
+    "clientQueueCapacity": 4096,
+    "messageBufferSize": 4096,
+    "longPollMaxBatch": 100
+  },
   "scenarios": [
     {
-      "name": "rate-2500",
+      "name": "rate-4000",
       "clients": 50,
       "payloadSize": 1024,
-      "rate": 2500,
+      "rate": 4000,
       "durationSeconds": 30
     },
     {
-      "name": "rate-2750",
+      "name": "rate-5000",
       "clients": 50,
       "payloadSize": 1024,
-      "rate": 2750,
+      "rate": 5000,
       "durationSeconds": 30
     },
     {
-      "name": "rate-3000",
+      "name": "rate-10000",
       "clients": 50,
       "payloadSize": 1024,
-      "rate": 3000,
+      "rate": 10000,
       "durationSeconds": 30
     }
   ]

@@ -1,9 +1,19 @@
 {
   "name": "thesis-experiments",
+   "protocols": [
+    "ws",
+    "sse",
+    "lp"
+  ],
   "repetitions": 5,
   "warmupSeconds": 5,
   "cooldownSeconds": 5,
   "clockSyncSamples": 20,
+  "defaults": {
+    "clientQueueCapacity": 4096,
+    "messageBufferSize": 4096,
+    "longPollMaxBatch": 100
+  },
   "scenarios": [
     {
       "name": "baseline",
