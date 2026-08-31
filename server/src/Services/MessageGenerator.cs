@@ -34,7 +34,7 @@ public sealed class MessageGenerator(BenchmarkState state, ILogger<MessageGenera
 				var target = (long)Math.Floor(sw.Elapsed.TotalSeconds * c.MessageRatePerSecond);
 				if (target <= generated)
 				{
-					await Task.Delay(c.MessageRatePerSecond >= 100 ? 1 : Math.Max(1, (int)(500 / c.MessageRatePerSecond)), token);
+					await Task.Delay(c.MessageRatePerSecond >= 100 ? 1 : (int)(500 / c.MessageRatePerSecond), token);
 					continue;
 				}
 				var batch = Math.Min(target - generated, 1000);
