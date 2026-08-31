@@ -64,7 +64,7 @@ dotnet test .\BenchmarkRealtimeProtocols.sln
 | `GET` | `/stats` | Return current server counters |
 | `GET` | `/ws` | Open a raw WebSocket connection |
 | `GET` | `/sse` | Open an SSE stream |
-| `GET` | `/lp` | Issue a Long Polling request |
+| `GET` | `/lp` | Issue a Long Polling request with `lastId`, `timeoutMs`, and `maxBatch` |
 
 The server URL can be configured through `ASPNETCORE_URLS`. If it is not configured, the server listens on `http://0.0.0.0:8080`.
 
@@ -118,12 +118,16 @@ Valid `--protocol` values are:
 | `--warmup-seconds` | `5` | Delay after all clients connect and before generation starts |
 | `--cooldown-seconds` | `2` | Delay after generation stops |
 | `--long-poll-timeout-ms` | `30000` | Long Polling request timeout |
-| `--long-poll-max-batch` | `100` | Maximum messages returned by one poll |
+| `--long-poll-max-batch` | `100` | Maximum number of messages returned by one Long Polling response |
+| `--client-queue-capacity` | `4096` | Per-client WebSocket and SSE queue capacity in messages |
+| `--message-buffer-size` | `4096` | Shared Long Polling buffer capacity in messages |
 | `--output-dir` | `/app/results` | Root result directory |
 | `--raw-log` | `false` | Write a bounded per-message JSONL log |
 | `--raw-log-limit` | `100000` | Maximum number of raw message records |
 | `--setup-timeout-seconds` | `60` | Maximum time for health checks and client connections |
 | `--clock-sync-samples` | `10` | Number of `/time` requests used for clock-offset estimation |
+
+The Long Polling batch limit controls how many buffered messages can be grouped into one JSON response. The shared buffer retains up to the configured number of recent messages.
 
 For direct local execution, explicitly use `--server-url http://localhost:8080` and a writable `--output-dir` that shares the same base directory as the server's `RESULTS_DIR`.
 
@@ -192,7 +196,7 @@ powershell -ExecutionPolicy Bypass -File `
 
 ### Experiment matrices
 
-The matrix runner requires a JSON configuration file and executes every scenario for `ws`, `sse`, and `lp`. It rotates protocol order between repetitions, records checkpoints, supports resuming an interrupted batch, validates every completed run, and starts the analyzer after all runs finish.
+The matrix runner requires a JSON configuration file. The final matrices execute every scenario for `ws`, `sse`, and `lp`; the runner rotates their order between repetitions, records checkpoints, supports resuming an interrupted batch, validates every completed run, and starts the analyzer after all runs finish.
 
 Generic command:
 
@@ -203,15 +207,15 @@ powershell -ExecutionPolicy Bypass -File `
   -BatchName BATCH_NAME
 ```
 
-The thesis experiments are defined by:
+The final thesis experiments are defined by:
 
 | Matrix | Purpose | Expected runs |
 |---|---|---:|
 | `experiments/main-matrix.json` | Main set with 16 scenarios | 240 |
 | `experiments/client-extension-matrix.json` | Scenarios with 1,000, 2,000, and 5,000 clients | 45 |
-| `experiments/boundary-confirmation-matrix.json` | Message-rate saturation confirmation | 45 |
+| `experiments/rate-extension-matrix.json` | Scenarios with 4,000, 5,000, and 10,000 messages per second | 45 |
 
-For example, reproduce the main matrix with:
+For example, run the main matrix with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File `
