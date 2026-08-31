@@ -5,6 +5,7 @@ public sealed class LatencyHistogram
 	private const int Resolution = 10;
 	private const int MaxBucket = 60000;
 	private readonly long[] _buckets = new long[MaxBucket * Resolution + 2];
+	private readonly SortedDictionary<double, long> _overflow = new();
 	private readonly object _gate = new();
 	private long _count;
 	private double _sum;
@@ -21,8 +22,16 @@ public sealed class LatencyHistogram
 			_sum += ms;
 			_min = Math.Min(_min, ms);
 			_max = Math.Max(_max, ms);
-			var i = (int)Math.Clamp(Math.Round(Math.Max(0, ms) * Resolution), 0, _buckets.Length - 1);
-			_buckets[i]++;
+			var normalized = Math.Max(0, ms);
+			var scaled = Math.Round(normalized * Resolution);
+			if (scaled < _buckets.Length)
+			{
+				_buckets[(int)scaled]++;
+			}
+			else
+			{
+				_overflow[normalized] = _overflow.GetValueOrDefault(normalized) + 1;
+			}
 		}
 	}
 
@@ -65,6 +74,11 @@ public sealed class LatencyHistogram
 			{
 				if ((n += _buckets[i]) >= target)
 					return i / (double)Resolution;
+			}
+			foreach (var (value, count) in _overflow)
+			{
+				if ((n += count) >= target)
+					return value;
 			}
 
 			return _max;

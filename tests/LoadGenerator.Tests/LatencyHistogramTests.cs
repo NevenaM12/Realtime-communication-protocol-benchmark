@@ -32,4 +32,16 @@ public class LatencyHistogramTests
 		Assert.Equal(0, histogram.Max);
 		Assert.Equal(0, histogram.Percentile(.95));
 	}
+
+	[Fact]
+	public void Preserves_percentiles_above_sixty_seconds()
+	{
+		var histogram = new LatencyHistogram();
+		histogram.Record(80_000);
+		histogram.Record(100_000);
+		histogram.Record(120_000);
+
+		Assert.Equal(120_000, histogram.Percentile(.95));
+		Assert.Equal(120_000, histogram.Max);
+	}
 }
