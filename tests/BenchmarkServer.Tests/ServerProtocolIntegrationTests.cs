@@ -53,7 +53,7 @@ public sealed class ServerProtocolIntegrationTests
 
 		Assert.Equal(1, message.Id);
 		Assert.Equal(new string('A', 32), message.Payload);
-		Assert.True(message.SentAt > 0);
+		Assert.True(message.CreatedAt > 0);
 		Assert.True(File.Exists(Path.Combine(host.ResultsDirectory, runId, "server_config.json")));
 		Assert.True(File.Exists(Path.Combine(host.ResultsDirectory, runId, "server_final_stats.json")));
 	}

@@ -58,7 +58,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			{
 				await c.RunAsync(async (id, message, encoded, receivedAt) =>
 				{
-					var raw = receivedAt - message.SentAt;
+					var raw = receivedAt - message.CreatedAt;
 					var adjusted = raw + clock.EstimatedClockOffsetMs;
 					trackers[id].Record(message.Id);
 					latency.Record(adjusted);
@@ -76,7 +76,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 							protocol = options.Protocol,
 							clientId = id,
 							messageId = message.Id,
-							sent_at = message.SentAt,
+							created_at = message.CreatedAt,
 							received_at = receivedAt,
 							adjusted_latency_ms = adjusted,
 							raw_latency_ms = raw
