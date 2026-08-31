@@ -32,10 +32,61 @@ if ([int]$configuration.warmupSeconds -lt 0 -or
 	throw "Matrix warm-up and cooldown must be non-negative; clock-sync samples must be positive."
 }
 
+$protocols = @("ws", "sse", "lp")
+if ($null -ne $configuration.PSObject.Properties["protocols"]) {
+	$protocols = @($configuration.protocols | ForEach-Object { ([string]$_).ToLowerInvariant() })
+	if ($protocols.Count -eq 0) {
+		throw "Matrix protocols must contain at least one protocol."
+	}
+	$invalidProtocols = @($protocols | Where-Object { $_ -notin @("ws", "sse", "lp") })
+	if ($invalidProtocols.Count -gt 0 -or @($protocols | Select-Object -Unique).Count -ne $protocols.Count) {
+		throw "Matrix protocols must be unique values selected from ws, sse, and lp."
+	}
+}
+
+$allowedDefaultProperties = @(
+	"clientQueueCapacity", "messageBufferSize", "longPollMaxBatch")
+$defaults = $configuration.PSObject.Properties["defaults"]
+if ($null -ne $defaults) {
+	$unknownDefaultProperties = @($configuration.defaults.PSObject.Properties.Name |
+		Where-Object { $_ -notin $allowedDefaultProperties })
+	if ($unknownDefaultProperties.Count -gt 0) {
+		throw "Matrix defaults contain unknown properties: $($unknownDefaultProperties -join ', ')."
+	}
+}
+
+$defaultClientQueueCapacity = if ($null -ne $defaults -and
+	$null -ne $configuration.defaults.PSObject.Properties["clientQueueCapacity"]) {
+	[int]$configuration.defaults.clientQueueCapacity
+}
+else { 4096 }
+$defaultMessageBufferSize = if ($null -ne $defaults -and
+	$null -ne $configuration.defaults.PSObject.Properties["messageBufferSize"]) {
+	[int]$configuration.defaults.messageBufferSize
+}
+else { 4096 }
+$defaultLongPollMaxBatch = if ($null -ne $defaults -and
+	$null -ne $configuration.defaults.PSObject.Properties["longPollMaxBatch"]) {
+	[int]$configuration.defaults.longPollMaxBatch
+}
+else { 100 }
+
+if ($defaultClientQueueCapacity -le 0 -or $defaultMessageBufferSize -le 0 -or
+	$defaultLongPollMaxBatch -le 0) {
+	throw "Matrix default queue capacity, message buffer size, and long-poll maximum batch must be positive."
+}
+
 $scenarioNames = [System.Collections.Generic.HashSet[string]]::new(
 	[System.StringComparer]::OrdinalIgnoreCase)
+$allowedScenarioProperties = @(
+	"name", "clients", "payloadSize", "rate", "durationSeconds", "totalMessages",
+	"clientQueueCapacity", "messageBufferSize", "longPollMaxBatch")
 foreach ($scenario in $configuration.scenarios) {
 	$scenarioName = ConvertTo-SafeExperimentName ([string]$scenario.name)
+	$unknownProperties = @($scenario.PSObject.Properties.Name | Where-Object { $_ -notin $allowedScenarioProperties })
+	if ($unknownProperties.Count -gt 0) {
+		throw "Scenario '$scenarioName' contains unknown properties: $($unknownProperties -join ', ')."
+	}
 	if (-not $scenarioNames.Add($scenarioName)) {
 		throw "Matrix contains duplicate scenario name '$scenarioName'."
 	}
@@ -54,6 +105,21 @@ foreach ($scenario in $configuration.scenarios) {
 		($scenarioDuration -eq 0 -and $scenarioMessages -eq 0)) {
 		throw "Scenario '$scenarioName' must define a positive durationSeconds, totalMessages, or both."
 	}
+	$clientQueueCapacity = if ($null -ne $scenario.PSObject.Properties["clientQueueCapacity"]) {
+		[int]$scenario.clientQueueCapacity
+	}
+	else { $defaultClientQueueCapacity }
+	$messageBufferSize = if ($null -ne $scenario.PSObject.Properties["messageBufferSize"]) {
+		[int]$scenario.messageBufferSize
+	}
+	else { $defaultMessageBufferSize }
+	$longPollMaxBatch = if ($null -ne $scenario.PSObject.Properties["longPollMaxBatch"]) {
+		[int]$scenario.longPollMaxBatch
+	}
+	else { $defaultLongPollMaxBatch }
+	if ($clientQueueCapacity -le 0 -or $messageBufferSize -le 0 -or $longPollMaxBatch -le 0) {
+		throw "Scenario '$scenarioName' queue capacity, message buffer size, and long-poll maximum batch must be positive."
+	}
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -70,7 +136,6 @@ $analysisDirectory = Join-Path $hostBatchDirectory "analysis"
 $savedConfigurationPath = Join-Path $hostBatchDirectory "matrix-config.json"
 $checkpointPath = Join-Path $hostBatchDirectory "matrix-checkpoint.json"
 $manifestPath = Join-Path $hostBatchDirectory "matrix-execution.json"
-$protocols = @("ws", "sse", "lp")
 $expectedRuns = [int]$configuration.repetitions * $configuration.scenarios.Count * $protocols.Count
 
 if (Test-Path $hostBatchDirectory) {
@@ -178,6 +243,18 @@ foreach ($scenario in $configuration.scenarios) {
 			else {
 				0
 			}
+			$clientQueueCapacity = if ($null -ne $scenario.PSObject.Properties["clientQueueCapacity"]) {
+				[int]$scenario.clientQueueCapacity
+			}
+			else { $defaultClientQueueCapacity }
+			$messageBufferSize = if ($null -ne $scenario.PSObject.Properties["messageBufferSize"]) {
+				[int]$scenario.messageBufferSize
+			}
+			else { $defaultMessageBufferSize }
+			$longPollMaxBatch = if ($null -ne $scenario.PSObject.Properties["longPollMaxBatch"]) {
+				[int]$scenario.longPollMaxBatch
+			}
+			else { $defaultLongPollMaxBatch }
 			if ($durationSeconds -le 0 -and $totalMessages -le 0) {
 				throw "Scenario '$scenarioName' must define a positive durationSeconds, totalMessages, or both."
 			}
@@ -188,6 +265,9 @@ foreach ($scenario in $configuration.scenarios) {
 				repetition = $repetition
 				protocol = $protocol
 				orderInRepetition = [array]::IndexOf($orderedProtocols, $protocol) + 1
+				clientQueueCapacity = $clientQueueCapacity
+				messageBufferSize = $messageBufferSize
+				longPollMaxBatch = $longPollMaxBatch
 			}
 
 			if ($Resume -and (Test-Path (Join-Path $hostRunDirectory "final_summary.json") -PathType Leaf)) {
@@ -224,6 +304,9 @@ foreach ($scenario in $configuration.scenarios) {
 				WarmupSeconds = [int]$configuration.warmupSeconds
 				CooldownSeconds = [int]$configuration.cooldownSeconds
 				ClockSyncSamples = [int]$configuration.clockSyncSamples
+				ClientQueueCapacity = $clientQueueCapacity
+				MessageBufferSize = $messageBufferSize
+				LongPollMaxBatch = $longPollMaxBatch
 				BatchName = $BatchName
 				RunId = $runId
 				SkipBuild = $true

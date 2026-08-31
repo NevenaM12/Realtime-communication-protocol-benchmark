@@ -6,8 +6,14 @@ namespace BenchmarkServer.Protocols;
 
 public static class SseProtocol
 {
-	public static void MapSseProtocol(this WebApplication app) => app.MapGet("/sse", async (HttpContext ctx, BenchmarkState state) =>
+	public static void MapSseProtocol(this WebApplication app) => app.MapGet("/sse", async (int? queueCapacity, HttpContext ctx, BenchmarkState state) =>
 	{
+		var capacity = queueCapacity ?? 4096;
+		if (capacity <= 0 || capacity > 1_000_000)
+		{
+			ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+			return;
+		}
 		ctx.Response.Headers.ContentType = "text/event-stream";
 		ctx.Response.Headers.CacheControl = "no-cache";
 		ctx.Response.Headers.Connection = "keep-alive";
@@ -16,7 +22,7 @@ public static class SseProtocol
 		await ctx.Response.WriteAsync(": connected\n\n", ctx.RequestAborted);
 		await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
 		var id = Guid.NewGuid();
-		var ch = Channel.CreateBounded<BenchmarkMessage>(new BoundedChannelOptions(4096)
+		var ch = Channel.CreateBounded<BenchmarkMessage>(new BoundedChannelOptions(capacity)
 		{
 			FullMode = BoundedChannelFullMode.Wait,
 			SingleReader = true

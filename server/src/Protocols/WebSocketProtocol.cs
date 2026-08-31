@@ -7,8 +7,14 @@ namespace BenchmarkServer.Protocols;
 
 public static class WebSocketProtocol
 {
-	public static void MapWebSocketProtocol(this WebApplication app) => app.MapGet("/ws", async (HttpContext ctx, BenchmarkState state) =>
+	public static void MapWebSocketProtocol(this WebApplication app) => app.MapGet("/ws", async (int? queueCapacity, HttpContext ctx, BenchmarkState state) =>
 	{
+		var capacity = queueCapacity ?? 4096;
+		if (capacity <= 0 || capacity > 1_000_000)
+		{
+			ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+			return;
+		}
 		if (!ctx.WebSockets.IsWebSocketRequest)
 		{
 			ctx.Response.StatusCode = 400;
@@ -16,7 +22,7 @@ public static class WebSocketProtocol
 		}
 		using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
 		var id = Guid.NewGuid();
-		var ch = Channel.CreateBounded<BenchmarkMessage>(new BoundedChannelOptions(4096)
+		var ch = Channel.CreateBounded<BenchmarkMessage>(new BoundedChannelOptions(capacity)
 		{
 			FullMode = BoundedChannelFullMode.Wait,
 			SingleReader = true

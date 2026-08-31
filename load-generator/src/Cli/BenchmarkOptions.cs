@@ -13,6 +13,8 @@ public sealed record BenchmarkOptions(
 	int CooldownSeconds,
 	int LongPollTimeoutMs,
 	int LongPollMaxBatch,
+	int ClientQueueCapacity,
+	int MessageBufferSize,
 	string OutputDir,
 	bool RawLog,
 	int RawLogLimit,

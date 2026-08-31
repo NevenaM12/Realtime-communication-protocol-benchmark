@@ -5,7 +5,7 @@ using LoadGenerator.Models;
 
 namespace LoadGenerator.Clients;
 
-public sealed class WebSocketBenchmarkClient(int id, string serverUrl) : IBenchmarkClient
+public sealed class WebSocketBenchmarkClient(int id, string serverUrl, int queueCapacity) : IBenchmarkClient
 {
 	private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
 	private readonly ClientWebSocket _socket = new();
@@ -19,7 +19,9 @@ public sealed class WebSocketBenchmarkClient(int id, string serverUrl) : IBenchm
 	public async Task ConnectAsync(CancellationToken t)
 	{
 		var sw = Stopwatch.StartNew();
-		var uri = new Uri(serverUrl.Replace("http://", "ws://").Replace("https://", "wss://").TrimEnd('/') + "/ws");
+		var uri = new Uri(
+			serverUrl.Replace("http://", "ws://").Replace("https://", "wss://").TrimEnd('/') +
+			$"/ws?queueCapacity={queueCapacity}");
 		await _socket.ConnectAsync(uri, t);
 		SetupTimeMs = sw.Elapsed.TotalMilliseconds;
 	}

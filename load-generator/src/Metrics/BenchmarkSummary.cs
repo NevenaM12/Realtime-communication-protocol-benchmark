@@ -8,6 +8,9 @@ public sealed class BenchmarkSummary
 	public int PayloadSizeBytes { get; set; }
 	public int MessageRatePerSecond { get; set; }
 	public int DurationSeconds { get; set; }
+	public int ClientQueueCapacity { get; set; }
+	public int MessageBufferSize { get; set; }
+	public int LongPollMaxBatch { get; set; }
 	public long MessagesReceived { get; set; }
 	public long UniqueMessagesReceived { get; set; }
 	public long MessagesGeneratedByServer { get; set; }

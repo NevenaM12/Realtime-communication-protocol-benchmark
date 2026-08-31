@@ -5,7 +5,7 @@ using LoadGenerator.Models;
 
 namespace LoadGenerator.Clients;
 
-public sealed class SseBenchmarkClient(int id, string serverUrl, HttpClient http) : IBenchmarkClient
+public sealed class SseBenchmarkClient(int id, string serverUrl, HttpClient http, int queueCapacity) : IBenchmarkClient
 {
 	private HttpResponseMessage? _response;
 	private StreamReader? _reader;
@@ -19,7 +19,10 @@ public sealed class SseBenchmarkClient(int id, string serverUrl, HttpClient http
 	public async Task ConnectAsync(CancellationToken t)
 	{
 		var sw = Stopwatch.StartNew();
-		_response = await http.GetAsync(serverUrl.TrimEnd('/') + "/sse", HttpCompletionOption.ResponseHeadersRead, t);
+		_response = await http.GetAsync(
+			serverUrl.TrimEnd('/') + $"/sse?queueCapacity={queueCapacity}",
+			HttpCompletionOption.ResponseHeadersRead,
+			t);
 		_response.EnsureSuccessStatusCode();
 		_reader = new StreamReader(await _response.Content.ReadAsStreamAsync(t));
 		SetupTimeMs = sw.Elapsed.TotalMilliseconds;

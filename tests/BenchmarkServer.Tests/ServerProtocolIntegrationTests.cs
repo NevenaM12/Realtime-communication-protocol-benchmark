@@ -131,13 +131,13 @@ public sealed class ServerProtocolIntegrationTests
 		string runId,
 		CancellationToken token)
 	{
-		using (var ready = await http.GetAsync("/lp?lastId=0&timeoutMs=0&maxBatch=10", token))
+		using (var ready = await http.GetAsync("/lp?lastId=0&timeoutMs=0&maxBatch=100", token))
 			ready.EnsureSuccessStatusCode();
 
 		await StartRunAsync(http, runId, token);
 		try
 		{
-			using var response = await http.GetAsync("/lp?lastId=0&timeoutMs=5000&maxBatch=10", token);
+			using var response = await http.GetAsync("/lp?lastId=0&timeoutMs=5000&maxBatch=100", token);
 			response.EnsureSuccessStatusCode();
 			var body = await response.Content.ReadFromJsonAsync<LongPollingResponse>(Json, token)
 				?? throw new InvalidOperationException("The Long Polling response was empty.");

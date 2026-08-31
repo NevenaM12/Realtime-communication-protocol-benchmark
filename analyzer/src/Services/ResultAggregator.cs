@@ -12,7 +12,10 @@ public static class ResultAggregator
 				run.PayloadSizeBytes,
 				run.MessageRatePerSecond,
 				run.DurationSeconds,
-				run.TotalMessages))
+				run.TotalMessages,
+				run.ClientQueueCapacity,
+				run.MessageBufferSize,
+				run.LongPollMaxBatch))
 			.Select(CreateAggregate)
 			.OrderBy(aggregate => aggregate.Protocol)
 			.ThenBy(aggregate => aggregate.Clients)
@@ -20,6 +23,9 @@ public static class ResultAggregator
 			.ThenBy(aggregate => aggregate.MessageRatePerSecond)
 			.ThenBy(aggregate => aggregate.DurationSeconds)
 			.ThenBy(aggregate => aggregate.TotalMessages)
+			.ThenBy(aggregate => aggregate.ClientQueueCapacity)
+			.ThenBy(aggregate => aggregate.MessageBufferSize)
+			.ThenBy(aggregate => aggregate.LongPollMaxBatch)
 			.ToArray();
 
 	private static ProtocolAggregate CreateAggregate(IGrouping<AggregateKey, RunSummary> group)
@@ -36,6 +42,9 @@ public static class ResultAggregator
 			DurationSeconds = group.Key.DurationSeconds,
 			TotalMessages = group.Key.TotalMessages,
 			RunCount = runs.Length,
+			ClientQueueCapacity = group.Key.ClientQueueCapacity,
+			MessageBufferSize = group.Key.MessageBufferSize,
+			LongPollMaxBatch = group.Key.LongPollMaxBatch,
 			AverageThroughputMessagesPerSecond = runs.Average(run => run.ThroughputMessagesPerSecond),
 			ThroughputStandardDeviation = SampleStandardDeviation(runs.Select(run => run.ThroughputMessagesPerSecond)),
 			AverageGenerationAchievementRatio = runs.Average(run => run.GenerationAchievementRatio),
@@ -97,5 +106,8 @@ public static class ResultAggregator
 		int PayloadSizeBytes,
 		int MessageRatePerSecond,
 		int DurationSeconds,
-		long? TotalMessages);
+		long? TotalMessages,
+		int ClientQueueCapacity,
+		int MessageBufferSize,
+		int LongPollMaxBatch);
 }

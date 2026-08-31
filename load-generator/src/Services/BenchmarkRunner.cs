@@ -38,7 +38,7 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			messageRatePerSecond = options.Rate,
 			durationSeconds = options.Duration,
 			totalMessages = options.TotalMessages,
-			messageBufferSize = 10000
+			messageBufferSize = options.MessageBufferSize
 		};
 		using (var start = await _http.PostAsJsonAsync(options.ServerUrl.TrimEnd('/') + "/control/start", config))
 			start.EnsureSuccessStatusCode();
@@ -184,6 +184,9 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 			PayloadSizeBytes = options.PayloadSize,
 			MessageRatePerSecond = options.Rate,
 			DurationSeconds = options.Duration,
+			ClientQueueCapacity = options.ClientQueueCapacity,
+			MessageBufferSize = options.MessageBufferSize,
+			LongPollMaxBatch = options.LongPollMaxBatch,
 			MessagesReceived = received,
 			UniqueMessagesReceived = uniqueReceived,
 			MessagesGeneratedByServer = final.MessagesGenerated,
@@ -228,8 +231,8 @@ public sealed class BenchmarkRunner(BenchmarkOptions options)
 
 	private IBenchmarkClient CreateClient(int id) => options.Protocol switch
 	{
-		"ws" => new WebSocketBenchmarkClient(id, options.ServerUrl),
-		"sse" => new SseBenchmarkClient(id, options.ServerUrl, _http),
+		"ws" => new WebSocketBenchmarkClient(id, options.ServerUrl, options.ClientQueueCapacity),
+		"sse" => new SseBenchmarkClient(id, options.ServerUrl, _http, options.ClientQueueCapacity),
 		_ => new LongPollingBenchmarkClient(id, options.ServerUrl, _http, options.LongPollTimeoutMs, options.LongPollMaxBatch)
 	};
 

@@ -10,6 +10,9 @@ public sealed class ProtocolAggregate
 	public int DurationSeconds { get; set; }
 	public long? TotalMessages { get; set; }
 	public int RunCount { get; set; }
+	public int ClientQueueCapacity { get; set; }
+	public int MessageBufferSize { get; set; }
+	public int LongPollMaxBatch { get; set; }
 	public double AverageThroughputMessagesPerSecond { get; set; }
 	public double? ThroughputStandardDeviation { get; set; }
 	public double AverageGenerationAchievementRatio { get; set; }

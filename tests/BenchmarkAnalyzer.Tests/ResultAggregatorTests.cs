@@ -50,6 +50,30 @@ public class ResultAggregatorTests
 		Assert.Null(aggregate.LatencyP95StandardDeviationMs);
 	}
 
+	[Fact]
+	public void Keeps_runs_with_different_transport_limits_in_separate_aggregates()
+	{
+		var first = CreateRun("lp", throughput: 10, deliveryRatio: 1,
+			generationAchievementRatio: 1, latencyP95: 2, cpuPeak: 20,
+			memoryPeak: 100, cpuAverage: 10);
+		first.ClientQueueCapacity = 2500;
+		first.MessageBufferSize = 10000;
+		first.LongPollMaxBatch = 500;
+
+		var second = CreateRun("lp", throughput: 10, deliveryRatio: 1,
+			generationAchievementRatio: 1, latencyP95: 2, cpuPeak: 20,
+			memoryPeak: 100, cpuAverage: 10);
+		second.ClientQueueCapacity = 2500;
+		second.MessageBufferSize = 10000;
+		second.LongPollMaxBatch = 1000;
+
+		var aggregates = ResultAggregator.Aggregate([first, second]);
+
+		Assert.Equal(2, aggregates.Count);
+		Assert.Contains(aggregates, aggregate => aggregate.LongPollMaxBatch == 500);
+		Assert.Contains(aggregates, aggregate => aggregate.LongPollMaxBatch == 1000);
+	}
+
 	private static RunSummary CreateRun(
 		string protocol,
 		double throughput,

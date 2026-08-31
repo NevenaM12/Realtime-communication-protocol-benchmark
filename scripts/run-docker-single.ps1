@@ -11,6 +11,9 @@ param(
 	[int]$WarmupSeconds = 5,
 	[int]$CooldownSeconds = 2,
 	[int]$ClockSyncSamples = 10,
+	[int]$LongPollMaxBatch = 100,
+	[int]$MessageBufferSize = 4096,
+	[int]$ClientQueueCapacity = 4096,
 	[string]$BatchName = "",
 	[string]$RunId = "",
 	[switch]$SkipBuild,
@@ -28,6 +31,9 @@ if ($DurationSeconds -lt 0 -or $TotalMessages -lt 0 -or ($DurationSeconds -eq 0 
 }
 if ($WarmupSeconds -lt 0 -or $CooldownSeconds -lt 0 -or $ClockSyncSamples -le 0) {
 	throw "Warm-up and cooldown must be non-negative; clock-sync samples must be positive."
+}
+if ($LongPollMaxBatch -le 0 -or $MessageBufferSize -le 0 -or $ClientQueueCapacity -le 0) {
+	throw "Long-poll maximum batch, message buffer size, and client queue capacity must be positive."
 }
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -80,6 +86,9 @@ try {
 		"--server-url", "http://benchmark-server:8080",
 		"--warmup-seconds", $WarmupSeconds.ToString(),
 		"--cooldown-seconds", $CooldownSeconds.ToString(),
+		"--long-poll-max-batch", $LongPollMaxBatch.ToString(),
+		"--message-buffer-size", $MessageBufferSize.ToString(),
+		"--client-queue-capacity", $ClientQueueCapacity.ToString(),
 		"--output-dir", $containerBatchDirectory,
 		"--setup-timeout-seconds", "60",
 		"--clock-sync-samples", $ClockSyncSamples.ToString()

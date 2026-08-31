@@ -10,6 +10,9 @@ public sealed class RunSummary
 	public int MessageRatePerSecond { get; set; }
 	public int DurationSeconds { get; set; }
 	public long? TotalMessages { get; set; }
+	public int ClientQueueCapacity { get; set; }
+	public int MessageBufferSize { get; set; }
+	public int LongPollMaxBatch { get; set; }
 
 	// client metrics
 	public long MessagesReceived { get; set; }

@@ -2,6 +2,15 @@ namespace LoadGenerator.Cli;
 
 public static class CommandLineParser
 {
+	private static readonly HashSet<string> AllowedOptions = new(StringComparer.OrdinalIgnoreCase)
+	{
+		"protocol", "clients", "payload-size", "rate", "duration", "total-messages",
+		"run-id", "server-url", "warmup-seconds", "cooldown-seconds",
+		"long-poll-timeout-ms", "long-poll-max-batch", "client-queue-capacity",
+		"message-buffer-size", "output-dir", "raw-log", "raw-log-limit",
+		"setup-timeout-seconds", "clock-sync-samples"
+	};
+
 	public static BenchmarkOptions Parse(string[] args)
 	{
 		var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -10,24 +19,29 @@ public static class CommandLineParser
 			if (!args[i].StartsWith("--"))
 				throw new ArgumentException($"Unexpected argument: {args[i]}");
 			var k = args[i][2..];
+			if (!AllowedOptions.Contains(k))
+				throw new ArgumentException($"Unknown option: --{k}");
 			var v = i + 1 < args.Length && !args[i + 1].StartsWith("--") ? args[++i] : "true";
 			d[k] = v;
 		}
-
 		string Get(string k, string? x = null) => d.TryGetValue(k, out var v) ? v : x ?? throw new ArgumentException($"Missing --{k}");
 		int Int(string k, int x) => int.Parse(Get(k, x.ToString()));
 		var protocol = Get("protocol").ToLowerInvariant();
 
 		if (protocol is not ("ws" or "sse" or "lp"))
 			throw new ArgumentException("--protocol must be ws, sse, or lp");
-
 		var clients = Int("clients", 1);
 		var size = Int("payload-size", 1024);
 		var rate = Int("rate", 10);
+		var clientQueueCapacity = Int("client-queue-capacity", 4096);
+		var messageBufferSize = Int("message-buffer-size", 4096);
+		var longPollMaxBatch = Int("long-poll-max-batch", 100);
 		long? totalMessages = d.TryGetValue("total-messages", out var tm) ? long.Parse(tm) : null;
 		var duration = Int("duration", totalMessages is null ? 60 : 0);
 		if (clients <= 0 || size < 0 || rate <= 0)
 			throw new ArgumentException("clients and rate must be positive and payload size non-negative");
+		if (clientQueueCapacity <= 0 || messageBufferSize <= 0 || longPollMaxBatch <= 0)
+			throw new ArgumentException("queue capacity, message buffer size, and long-poll max batch must be positive");
 		if (duration < 0 || (duration == 0 && totalMessages is null))
 			throw new ArgumentException("--duration must be non-negative and can be zero only when --total-messages is specified");
 		if (totalMessages <= 0)
@@ -45,7 +59,9 @@ public static class CommandLineParser
 			Int("warmup-seconds", 5),
 			Int("cooldown-seconds", 2),
 			Int("long-poll-timeout-ms", 30000),
-			Int("long-poll-max-batch", 100),
+			longPollMaxBatch,
+			clientQueueCapacity,
+			messageBufferSize,
 			Get("output-dir", "/app/results"),
 			bool.Parse(Get("raw-log", "false")),
 			Int("raw-log-limit", 100000),
