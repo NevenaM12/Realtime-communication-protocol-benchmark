@@ -6,7 +6,7 @@ public sealed record BenchmarkRunConfig(
 	double MessageRatePerSecond,
 	int DurationSeconds,
 	long? TotalMessages,
-	int MessageBufferSize = 10000)
+	int MessageBufferSize = 4096)
 {
 	public void Validate()
 	{

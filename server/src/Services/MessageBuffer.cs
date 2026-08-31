@@ -5,8 +5,9 @@ namespace BenchmarkServer.Services;
 public sealed class MessageBuffer
 {
 	private readonly object _gate = new();
-	private readonly List<BenchmarkMessage> _items = [];
-	private int _capacity = 10000;
+	private readonly Queue<BenchmarkMessage> _items = new();
+	private int _capacity = 4096;
+
 	private TaskCompletionSource _changed = NewSignal();
 
 	private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -26,9 +27,9 @@ public sealed class MessageBuffer
 	{
 		lock (_gate)
 		{
-			_items.Add(message);
-			if (_items.Count > _capacity)
-				_items.RemoveRange(0, _items.Count - _capacity);
+			if (_items.Count >= _capacity)
+        		_items.Dequeue();
+    		_items.Enqueue(message);
 			_changed.TrySetResult();
 			_changed = NewSignal();
 		}
@@ -51,7 +52,18 @@ public sealed class MessageBuffer
 
 	private (IReadOnlyList<BenchmarkMessage> Messages, bool Truncated) ReadAfterLocked(long lastId, int maxBatch)
 	{
-		var truncated = _items.Count > 0 && lastId < _items[0].Id - 1;
-		return (_items.Where(x => x.Id > lastId).Take(Math.Clamp(maxBatch, 1, 10000)).ToArray(), truncated);
+		var truncated = _items.TryPeek(out var oldest) && lastId < oldest.Id - 1;
+		var limit = Math.Clamp(maxBatch, 1, _capacity);
+		var messages = new List<BenchmarkMessage>(Math.Min(_items.Count, limit));
+		foreach (var message in _items)
+		{
+			if (message.Id <= lastId)
+				continue;
+			messages.Add(message);
+			if (messages.Count == limit)
+				break;
+		}
+
+		return (messages, truncated);
 	}
 }
